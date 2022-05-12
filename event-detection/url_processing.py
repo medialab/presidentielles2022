@@ -8,7 +8,7 @@ import re
 URLS = {}
 
 with gzip.open('presidentielle_compiled.csv.gz', 'rt') as f, open('urls_processed.csv', 'w') as fi:
-    reader = casanova.reader(csv.reader(l.replace('\0', '') for l in f))
+    reader = casanova.reader(f, ignore_null_bytes=True)
     writer = csv.writer(fi)
 
     links_pos = reader.headers.links
