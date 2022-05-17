@@ -8,7 +8,7 @@ import re
 URLS = {}
 
 with gzip.open('presidentielle_compiled.csv.gz', 'rt') as f, open('urls_processed.csv', 'w') as fi:
-    reader = casanova.reader(f, ignore_null_bytes=True)
+    reader = casanova.reader(csv.reader(l.replace('\0', '') for l in f))
     writer = csv.writer(fi)
 
     links_pos = reader.headers.links
@@ -32,25 +32,22 @@ with gzip.open('presidentielle_compiled.csv.gz', 'rt') as f, open('urls_processe
         for url in urls:
             share_count[url] +=1
 
-            if url in URLS:
-                URLS[url][1].add(candidates)
-            else:
-                URLS[url] = (
-                    [
-                        url,
-                        timestamp,
-                        text
-                    ],
-                    set(candidates)
-                )
+            URLS[url] = (
+                [
+                    url,
+                    timestamp,
+                    text,
+                    retweet_count,
+                    retweeted_id,
+                    retweeted_user
+                ],
+                set(candidates.split('|'))
+            )
 
-    writer.writerow(['url','timestamp', 'candidates', 'text',
-    'retweet_count', 'retweeted_id', 'retweeted_user', 'share_count'])
+    writer.writerow(['url', 'timestamp', 'text', 'retweet_count', 'retweeted_id',
+    'retweeted_user', 'share_count', 'candidates'])
 
     for row, candidates in URLS.values():
-        row.append('|'.join(candidates))
         row.append(share_count[row[0]])
+        row.append(candidates)
         writer.writerow(row)
-
-
-print(len(URLS))
