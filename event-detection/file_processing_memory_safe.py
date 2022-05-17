@@ -31,15 +31,29 @@ generators = [
 ]
 
 headers = next(iter(readers.values())).headers
-id_pos = headers.id
-timestamp_pos = headers.timestamp_utc
+id_pos = reader.headers.id
+links_pos = reader.headers.links
+user_id_pos = reader.headers.user_id
+screen_name_pos = reader.headers.user_screen_name
+timestamp_pos = reader.headers.timestamp_utc
+text_pos = reader.headers.text
+retweet_count_pos = reader.headers.retweet_count
+retweeted_id_pos = reader.headers.retweeted_id
+retweeted_user_pos = reader.headers.retweeted_user
 
 # Reading
 with open('presidentielle_compiled.csv', 'w') as f:
     writer = csv.writer(f)
     writer.writerow([
         'id',
+        'links',
+        'user_id',
+        'user_screen_name',
         'timestamp',
+        'text',
+        'retweet_count',
+        'retweeted_id',
+        'retweeted_user',
         'candidates'
     ])
 
@@ -69,7 +83,14 @@ with open('presidentielle_compiled.csv', 'w') as f:
 
             writer.writerow([
                 tweet[id_pos],
+                tweet[links_pos],
+                tweet[user_id_pos],
+                tweet[screen_name_pos],
                 tweet[timestamp_pos],
+                tweet[text_pos],
+                tweet[retweet_count_pos],
+                tweet[retweeted_id_pos],
+                tweet[retweeted_user_pos]
                 '|'.join(candidates)
             ])
 
