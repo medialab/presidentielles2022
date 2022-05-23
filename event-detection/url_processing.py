@@ -7,7 +7,7 @@ import re
 
 URLS = {}
 
-with gzip.open('presidentielle_compiled.csv.gz', 'rt') as f, open('urls_processed.csv', 'w') as fi:
+with open('presidentielle_compiled.csv', 'rt') as f, open('urls_processed.csv', 'w') as fi:
     reader = casanova.reader(csv.reader(l.replace('\0', '') for l in f))
     writer = csv.writer(fi)
 
