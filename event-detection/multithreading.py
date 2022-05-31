@@ -62,38 +62,24 @@ with open('presidentielle_compiled.csv', 'rt') as f1, \
         for url in urls:
             for candidate in candidates:
                 url_infos = URLS.get(url)
-                for tinydict in url_infos:
-                    if tinydict is not None:
-                        print(tinydict)
-                        url_title = tinydict.values()[0]
-                        url_share_count = tinydict.values()[1]
-                        output_dict={
-                            'url': url,
-                            'title': url_title,
-                            'share_count': url_share_count,
-                            'candidate': candidate,
-                            'id': row[id_pos],
-                            'user_id': row[user_id_pos],
-                            'user_screen_name': row[user_screen_name_pos],
-                            'timestamp': row[timestamp_pos],
-                            'text': row[text_pos],
-                            'retweet_count': row[retweet_count_pos],
-                            'retweeted_id': row[retweeted_id_pos],
-                            'retweeted_user': row[retweeted_user_pos]}
+                if url_infos is not None:
+                    for tinydict in url_infos:
+                        if tinydict is not None:
+                            print(tinydict)
+                            url_title = tinydict.values()[0]
+                            url_share_count = tinydict.values()[1]
+                            output_dict={
+                                'url': url,
+                                'title': url_title,
+                                'share_count': url_share_count,
+                                'candidate': candidate,
+                                'id': row[id_pos],
+                                'user_id': row[user_id_pos],
+                                'user_screen_name': row[user_screen_name_pos],
+                                'timestamp': row[timestamp_pos],
+                                'text': row[text_pos],
+                                'retweet_count': row[retweet_count_pos],
+                                'retweeted_id': row[retweeted_id_pos],
+                                'retweeted_user': row[retweeted_user_pos]}
 
-                        writer.writerow(output_dict)
-
-
-    # description_pos = reader_3.headers.description
-    # raw_content_pos = reader_3.headers.raw_content
-    # comments_pos = reader_3.headers.comments
-    # author_pos = reader_3.headers.author
-    # sitename_pos = reader_3.headers.sitename
-
-    # for row in tqdm(reader_3, unit=' rows'):
-    #     URLS[row[url_pos]]['title'] = row[title_pos]
-    #     URLS[row[url_pos]]['description'] = row[description_pos]
-    #     URLS[row[url_pos]]['raw_content'] = row[raw_content_pos]
-    #     URLS[row[url_pos]]['comments'] = row[comments_pos]
-    #     URLS[row[url_pos]]['author'] = row[author_pos]
-    #     URLS[row[url_pos]]['sitename'] = row[sitename_pos]
+                            writer.writerow(output_dict)
