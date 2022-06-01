@@ -52,34 +52,31 @@ with open('presidentielle_compiled.csv', 'rt') as f1, \
     retweeted_id_pos = reader_compiled.headers.retweeted_id
     retweeted_user_pos = reader_compiled.headers.retweeted_user
 
-
     for row in tqdm(reader_compiled, unit='rows'):
         urls = row[url_pos_compiled].split("|")
         candidates = row[candidates_pos].split("|")
 
-        if not urls:
-            continue
         for url in urls:
+            if not url:
+                continue
+            url_info = URLS.get(url)
+            if url_info is None:
+                continue
             for candidate in candidates:
-                url_infos = URLS.get(url)
-                if url_infos is not None:
-                    for tinydict in url_infos:
-                        if tinydict is not None:
-                            print(tinydict)
-                            url_title = tinydict.values()[0]
-                            url_share_count = tinydict.values()[1]
-                            output_dict={
-                                'url': url,
-                                'title': url_title,
-                                'share_count': url_share_count,
-                                'candidate': candidate,
-                                'id': row[id_pos],
-                                'user_id': row[user_id_pos],
-                                'user_screen_name': row[user_screen_name_pos],
-                                'timestamp': row[timestamp_pos],
-                                'text': row[text_pos],
-                                'retweet_count': row[retweet_count_pos],
-                                'retweeted_id': row[retweeted_id_pos],
-                                'retweeted_user': row[retweeted_user_pos]}
+                url_title = url_info['title']
+                url_share_count = url_info['share_count']
+                output_dict={
+                    'url': url,
+                    'title': url_title,
+                    'share_count': url_share_count,
+                    'candidate': candidate,
+                    'id': row[id_pos],
+                    'user_id': row[user_id_pos],
+                    'user_screen_name': row[user_screen_name_pos],
+                    'timestamp': row[timestamp_pos],
+                    'text': row[text_pos],
+                    'retweet_count': row[retweet_count_pos],
+                    'retweeted_id': row[retweeted_id_pos],
+                    'retweeted_user': row[retweeted_user_pos]}
 
-                            writer.writerow(output_dict)
+                writer.writerow(output_dict)
