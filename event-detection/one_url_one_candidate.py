@@ -2,6 +2,7 @@ import csv
 import casanova
 from tqdm import tqdm
 import sys
+from ural import is_homepage
 
 URLS = {}
 
@@ -9,7 +10,7 @@ csv.field_size_limit(sys.maxsize)
 
 with open('presidentielle_compiled.csv', 'rt') as f1, \
     open('EXTRACTED-P1.CSV', 'rt') as f2, \
-        open('multithreaded_tweets.csv', 'w') as f3:
+        open('multithreaded_tweets_light.csv', 'w') as f3:
     reader_extracted = casanova.reader(f2, ignore_null_bytes=True)
     reader_compiled = casanova.reader(f1, ignore_null_bytes=True)
     fieldnames= [
@@ -57,14 +58,16 @@ with open('presidentielle_compiled.csv', 'rt') as f1, \
         candidates = row[candidates_pos].split("|")
 
         for url in urls:
-            if not url:
+            if not url or is_homepage(url)==True:
                 continue
             url_info = URLS.get(url)
             if url_info is None:
                 continue
+            url_share_count = url_info['share_count']
+            url_title = url_info['title']
+            if url_title == 'JavaScript is not available.':
+                continue
             for candidate in candidates:
-                url_title = url_info['title']
-                url_share_count = url_info['share_count']
                 output_dict={
                     'url': url,
                     'title': url_title,
