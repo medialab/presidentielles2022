@@ -5,6 +5,7 @@ EXTRACTED-P1.CSV
 urls_processed.csv
 unique_and_counted_urls.csv
 tweets_with_info.csv
+multithreaded_tweets_light.csv
 
 #env
 ural-test
