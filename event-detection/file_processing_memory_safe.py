@@ -8,7 +8,7 @@ import casanova
 from tqdm import tqdm
 
 def candidate_name_from_file_path(path):
-    return path.replace('presidentielle_', '').split('.', 1)[0]
+    return path.replace('presidentielle_', '').split('_', 1)[0]
 
 
 files = {
@@ -46,7 +46,7 @@ with open('presidentielle_compiled.csv', 'w') as f:
     writer = csv.writer(f)
     writer.writerow([
         'id',
-        'links',
+        'url',
         'user_id',
         'user_screen_name',
         'timestamp',
@@ -85,7 +85,6 @@ with open('presidentielle_compiled.csv', 'w') as f:
                 tweet[id_pos],
                 tweet[links_pos],
                 tweet[user_id_pos],
-                tweet[screen_name_pos],
                 tweet[screen_name_pos],
                 tweet[timestamp_pos],
                 tweet[text_pos],
