@@ -1,5 +1,12 @@
 #csv_files
 presidentielle_*
+FETCHED.CSV
+EXTRACTED-P1.CSV
+urls_processed.csv
+unique_and_counted_urls.csv
+tweets_with_info.csv
 
 #env
 ural-test
+
+
