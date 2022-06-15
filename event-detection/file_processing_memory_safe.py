@@ -40,6 +40,7 @@ text_pos = headers.text
 retweet_count_pos = headers.retweet_count
 retweeted_id_pos = headers.retweeted_id
 retweeted_user_pos = headers.retweeted_user
+user_followers_pos = headers.user_followers
 
 # Reading
 with open('presidentielle_compiled.csv', 'w') as f:
@@ -49,6 +50,7 @@ with open('presidentielle_compiled.csv', 'w') as f:
         'url',
         'user_id',
         'user_screen_name',
+        'user_followers',
         'timestamp',
         'text',
         'retweet_count',
@@ -86,6 +88,7 @@ with open('presidentielle_compiled.csv', 'w') as f:
                 tweet[links_pos],
                 tweet[user_id_pos],
                 tweet[screen_name_pos],
+                tweet[user_followers_pos],
                 tweet[timestamp_pos],
                 tweet[text_pos],
                 tweet[retweet_count_pos],
