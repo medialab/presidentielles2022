@@ -3,14 +3,19 @@ import casanova
 from tqdm import tqdm
 import sys
 from ural import is_homepage
+import argparse
+import os
 
 URLS = {}
 
 csv.field_size_limit(sys.maxsize)
 
-with open('presidentielle_compiled.csv', 'rt') as f1, \
-    open('EXTRACTED-P1.CSV', 'rt') as f2, \
-        open('tweets_with_info.csv', 'w') as f3:
+parser = argparse.ArgumentParser(description='Path to files')
+parser.add_argument('-p', '--path', type=str, help='path to the files containing the corpus of tweets', default='')
+args = parser.parse_args()
+
+with open(os.path.join(args.path, 'presidentielle_compiled.csv'), 'rt') as f1, \
+    open(os.path.join(args.path, 'EXTRACTED-P1.CSV'), 'rt') as f2:
     reader_extracted = casanova.reader(f2, ignore_null_bytes=True)
     reader_compiled = casanova.reader(f1, ignore_null_bytes=True)
     fieldnames= [
@@ -30,7 +35,7 @@ with open('presidentielle_compiled.csv', 'rt') as f1, \
         'retweeted_id',
         'retweeted_user'
         ]
-    writer = csv.DictWriter(f3, fieldnames=fieldnames)
+    writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames)
     writer.writeheader()
 
     url_pos_extracted = reader_extracted.headers.url
