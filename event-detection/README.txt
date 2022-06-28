@@ -1,6 +1,8 @@
+Commands to run in the terminal for the constitution of the dataset:
+
 #Fetching
-minet fetch url unique_and_counted_urls.csv --throttle 0 --domain-parallelism 4 --total 1131867 --compress --output-dir FETCHED --folder-strategy prefix-4 -o FETCHED.CSV --resume
+./fetch.sh INPUT_FILE OUTPUT_DIR OUTPUT_FILE
 
 
-#Extracting without multiprocessing
-minet extract -p 1 -i FETCHED FETCHED.CSV -o EXTRACTED-P1.CSV
+#Extracting 
+./extract.sh INPUT_DIR INPUT_FILE OUTPUT_FILE
