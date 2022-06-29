@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 
 
 INPUT_FILE="$1"
@@ -14,10 +15,16 @@ if test -z "$OUTPUT_DIR" || ! test -d "$OUTPUT_DIR"; then
 fi
 
 OUTPUT_FILE="$3"
-if test -z "$OUTPUT_FILE" || ! test -d "$OUTPUT_FILE"; then
+if test -z "$OUTPUT_FILE"; then
   echo "Please input as third argument the name of the csv file in which to write the report"
   exit 1
 fi
 
-minet fetch url $INPUT_FILE --throttle 0 --domain-parallelism 4 --total 1131867 --compress --output-dir $OUTPUT_DIR --folder-strategy prefix-4 -o $OUTPUT_FILE --resume
+minet fetch url $INPUT_FILE  \
+    --throttle 0 \
+    --domain-parallelism 4 \
+    --compress \
+    --output-dir $OUTPUT_DIR \
+    --folder-strategy prefix-4 \
+    -o $OUTPUT_FILE --resume
 
