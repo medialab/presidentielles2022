@@ -1,4 +1,4 @@
-# Commands to run in the terminal for the constitution of the dataset:
+# Commands to run in the terminal for the constitution of the dataset (using Minet):
 
 ## Fetching
 ```
