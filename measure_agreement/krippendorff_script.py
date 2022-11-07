@@ -65,7 +65,7 @@ for key, values in labels_annotator.items():
                 in_labels_not_values.append(el)
         raise Exception("In " + key + " not in initials", in_values_not_labels, "In initials not in " + key, in_labels_not_values,)
 
-# print("Total number of tweets: ", len(set_ids))
+print("Total number of tweets: ", len(set_ids))
 # print("Conversion for labels: ", labels_to_int)
 
 # create dict where line is annotator, column is id and value is event : {id 1 : {{annotator 1 : event}, {annotator 2 : event} ...}, id 2 : ...}
@@ -98,6 +98,41 @@ for annotator, value in pairs_label_id_annotator.items():
             print(int_to_labels[label_int], ": ", 0, "|", 0)
     print()
     print()
+
+# ____________
+# Count tweets where we agree / disagree
+
+annotated_by_one = set()
+annotated_by_more = set()
+agreed = set()
+disagreed = set()
+
+for i, id in enumerate(set_ids):
+    not_nan = ~np.isnan(reliability_data[:, i])
+    count_annotated = np.count_nonzero(not_nan)
+    if count_annotated == 0:
+        raise Exception("No annotation for " + id)
+    elif count_annotated == 1:
+        annotated_by_one.add(id)
+    else:
+        annotated_by_more.add(id)
+        annotation = reliability_data[:, i][not_nan]
+        if np.all(annotation == annotation[0]):
+            agreed.add(id)
+        else:
+            disagreed.add(id)
+
+print("{} tweets were annotated by 2 persons. We agreed on {} tweets, and disagreed on {} tweets.".format(
+    len(annotated_by_more),
+    len(agreed),
+    len(disagreed)
+))
+print("{} were only annotated by one person.".format(len(annotated_by_one)))
+
+print()
+print()
+
+# --------------
 
 event_counters= Counter()
 for i in range(len(list_annotators)):
