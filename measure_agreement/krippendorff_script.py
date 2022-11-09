@@ -1,4 +1,6 @@
+import os
 import csv
+import random
 from tqdm import tqdm
 from os import listdir
 from os.path import join
@@ -16,6 +18,7 @@ list_annotators = []
 pairs_label_id_annotator = defaultdict(list)  # {annotator 1 : [(id 1, event), (id 2, event) ...], annotator 2 : ...}
 labels_to_int = dict()  # {label 1 : id 1, label 2 : ...} ---> label is fingerprint(label)
 int_to_labels = dict()  # {id 1 : label 1, id 2 : ...} ---> label is initial label
+raw_text_labels = set()
 for file in listdir("annotations"):
     list_annotators.append(file)
     with open(join("annotations", file), "r") as f:
@@ -32,6 +35,7 @@ for file in listdir("annotations"):
                 event = "mckinsey"
                 line["event"] = "mckinsey"
             if not line["id"]:  # initial label
+                raw_text_labels.add(line["event"])
                 labels_annotator[file].append(event)
                 labels_to_int[event] = label_index
                 int_to_labels[label_index] = line["event"]
@@ -100,14 +104,18 @@ for annotator, value in pairs_label_id_annotator.items():
     print()
 
 # ____________
-# Count tweets where we agree / disagree
+# Count tweets where we agree / disagree. For tweets where we disagree, find another annotator.
 
 annotated_by_one = set()
 annotated_by_more = set()
-agreed = set()
-disagreed = set()
+count_agreed = 0
+count_disagreed = 0
+array_annotators = np.array(list_annotators)
+reannotator_names = ["Béatrice", "Benjamin T", "Benjamin O"]
+reannotator = {name: {origin_file: [] for origin_file in list_annotators} for name in reannotator_names}
+events = [{"event": label} for label in raw_text_labels]
 
-for i, id in enumerate(set_ids):
+for i, id in enumerate(id_to_annotator_to_event.keys()):
     not_nan = ~np.isnan(reliability_data[:, i])
     count_annotated = np.count_nonzero(not_nan)
     if count_annotated == 0:
@@ -118,19 +126,59 @@ for i, id in enumerate(set_ids):
         annotated_by_more.add(id)
         annotation = reliability_data[:, i][not_nan]
         if np.all(annotation == annotation[0]):
-            agreed.add(id)
+            count_agreed += 1
         else:
-            disagreed.add(id)
+            annotated_by = array_annotators[not_nan]
+            origin_file = annotated_by[0]
+
+            if "Benjamin.csv" in annotated_by:
+                if "Béatrice.csv" in annotated_by:
+                    reannotator["Benjamin O"][origin_file].append(id)
+                else:
+                    reannotator["Béatrice"][origin_file].append(id)
+            elif "Béatrice.csv" in annotated_by:
+                reannotator["Benjamin T"][origin_file].append(id)
+            else:
+                i = random.randint(0, 2)
+                reannotator[reannotator_names[i]][origin_file].append(id)
+            count_disagreed += 1
 
 print("{} tweets were annotated by 2 persons. We agreed on {} tweets, and disagreed on {} tweets.".format(
     len(annotated_by_more),
-    len(agreed),
-    len(disagreed)
+    count_agreed,
+    count_disagreed
 ))
 print("{} were only annotated by one person.".format(len(annotated_by_one)))
 
 print()
 print()
+
+os.makedirs("additional_annotations", exist_ok=True)
+headers = ["event", "tweet_texts", "texts", "user_screen_names", "sum_retweet_count", "candidates", "urls", "id",
+           "date", "ids"]
+
+for name, value in reannotator.items():
+
+    with open(os.path.join("additional_annotations", name + "_additional.csv"), "w") as new_file:
+        writer = csv.DictWriter(new_file, fieldnames=headers, extrasaction="ignore")
+        writer.writeheader()
+        for event in events:
+            writer.writerow(event)
+        for file, tweets in value.items():
+
+            if tweets:
+                with open(os.path.join("annotations", file), "r") as origin_file:
+                    reader = csv.DictReader(origin_file)
+                    next(reader)
+                    for row in reader:
+                        row.pop("event")
+                        if row["id"] in tweets:
+                            writer.writerow(row)
+                            tweets.remove(row["id"])
+
+                if len(tweets) != 0:
+                    raise Exception("These tweets were not found in {}: {}".format(file, tweets))
+
 
 # --------------
 
