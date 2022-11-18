@@ -86,30 +86,15 @@ for j, annotator in enumerate(list_annotators):
     for i, id in enumerate(id_to_annotator_to_event.keys()):
         reliability_data[j, i] = id_to_annotator_to_event[id].get(annotator) if id_to_annotator_to_event[id].get(annotator) else np.nan
 
-# -------------
-for annotator, value in pairs_label_id_annotator.items():
-    nb_annoted_annotator = 0
-    event_counters_annotator = Counter()
-    for id, event in value:
-        event_counters_annotator[int_to_labels[event]] += 1
-        nb_annoted_annotator += 1
-    print(annotator, "annotated (percentage of total)", nb_annoted_annotator*100/len(set_ids))
-    print("Percentage per annotator out of total | out of self:")
-    for event, nb in event_counters_annotator.most_common():
-        print(event, ": ", nb*100/len(set_ids), "|", nb*100/nb_annoted_annotator)
-    for label_int in int_to_labels.keys():
-        if int_to_labels[label_int] not in event_counters_annotator.keys():
-            print(int_to_labels[label_int], ": ", 0, "|", 0)
-    print()
-    print()
 
+print("---------------------------------")
 # ____________
 # Count tweets where we agree / disagree. For tweets where we disagree, find another annotator.
 
-annotated_by_one = set()
-annotated_by_more = set()
+nb_annotators_buckets = [set() for i in range(5)]
 count_agreed = 0
 count_disagreed = 0
+count_couldnt_find_agreement = 0
 array_annotators = np.array(list_annotators)
 reannotator_names = ["Béatrice", "Benjamin T", "Benjamin O"]
 reannotator = {name: {origin_file: [] for origin_file in list_annotators} for name in reannotator_names}
@@ -118,40 +103,49 @@ events = [{"event": label} for label in raw_text_labels]
 for i, id in enumerate(id_to_annotator_to_event.keys()):
     not_nan = ~np.isnan(reliability_data[:, i])
     count_annotated = np.count_nonzero(not_nan)
+    
     if count_annotated == 0:
         raise Exception("No annotation for " + id)
-    elif count_annotated == 1:
-        annotated_by_one.add(id)
     else:
-        annotated_by_more.add(id)
+        nb_annotators_buckets[count_annotated].add(id)
+    
+    if count_annotated >= 2:
         annotation = reliability_data[:, i][not_nan]
-        if np.all(annotation == annotation[0]):
-            count_agreed += 1
-        else:
-            annotated_by = array_annotators[not_nan]
-            origin_file = annotated_by[0]
+        annotated_by = array_annotators[not_nan]
 
-            if "Benjamin.csv" in annotated_by:
-                if "Béatrice.csv" in annotated_by:
-                    reannotator["Benjamin O"][origin_file].append(id)
-                else:
-                    reannotator["Béatrice"][origin_file].append(id)
-            elif "Béatrice.csv" in annotated_by:
-                reannotator["Benjamin T"][origin_file].append(id)
+        if count_annotated == 2:
+            if np.all(annotation == annotation[0]):
+                count_agreed += 1
             else:
-                i = random.randint(0, 2)
-                reannotator[reannotator_names[i]][origin_file].append(id)
-            count_disagreed += 1
+                origin_file = annotated_by[0]
+                if "Benjamin.csv" in annotated_by:
+                    if "Béatrice.csv" in annotated_by:
+                        reannotator["Benjamin O"][origin_file].append(id)
+                    else:
+                        reannotator["Béatrice"][origin_file].append(id)
+                elif "Béatrice.csv" in annotated_by:
+                    reannotator["Benjamin T"][origin_file].append(id)
+                else:
+                    i = random.randint(0, 2)
+                    reannotator[reannotator_names[i]][origin_file].append(id)
+                count_disagreed += 1
+        elif count_annotated == 3:
+            if len(np.unique(annotation)) == 3:
+                count_couldnt_find_agreement += 1
+        else:
+            raise Exception(
+                "{} annotators for tweet {}: {}, {}".format(
+                    count_annotated, id, annotation, annotated_by
+                    )
+                )
 
-print("{} tweets were annotated by 2 persons. We agreed on {} tweets, and disagreed on {} tweets.".format(
-    len(annotated_by_more),
-    count_agreed,
-    count_disagreed
-))
-print("{} were only annotated by one person.".format(len(annotated_by_one)))
+for i, bucket in enumerate(nb_annotators_buckets):
+    if len(bucket) != 0:
+        print("{} tweets were annotated by {} person{}".format(len(bucket), i, "s" if i > 1 else ""))
 
-print()
-print()
+print("For tweets annotated by 3 persons, {} tweets received 3 different annotations"\
+    .format(count_couldnt_find_agreement))
+
 
 os.makedirs("additional_annotations", exist_ok=True)
 headers = ["event", "tweet_texts", "texts", "user_screen_names", "sum_retweet_count", "candidates", "urls", "id",
@@ -182,6 +176,8 @@ for name, value in reannotator.items():
 
 # --------------
 
+print("--------------------------------")
+
 event_counters= Counter()
 for i in range(len(list_annotators)):
     for j in range(len(set_ids)):
@@ -194,15 +190,24 @@ for label_int in int_to_labels.keys():
         print(int_to_labels[label_int], 0)
 # -------------
 
-# print(reliability_data)
-# print(reliability_data[4, 2985])
-print("Krippendorff's alpha with zeros: ", krippendorff.alpha(reliability_data=reliability_data, level_of_measurement="nominal"))
+print("--------------------------------")
+print("Krippendorff's alpha: ", krippendorff.alpha(reliability_data=reliability_data, level_of_measurement="nominal"))
 
 krippendorff_annotators = np.empty([len(list_annotators), len(list_annotators)])
+krippendorff_annotators_more_than_hundred = krippendorff_annotators.copy()
 for index_1, annotator_1 in enumerate(list_annotators):
     for index_2, annotator_2 in enumerate(list_annotators):
+
         reliability_data_pairs = np.vstack((reliability_data[index_1], reliability_data[index_2]))
+
+        nb_in_common = reliability_data_pairs[:, ~np.isnan(reliability_data_pairs).any(axis=0)].shape[1]
+        
         krippendorff_annotators[index_1][index_2] = round(krippendorff.alpha(reliability_data=reliability_data_pairs, level_of_measurement="nominal"), 3)
+
+        if nb_in_common >= 100:
+            krippendorff_annotators_more_than_hundred[index_1][index_2] = round(krippendorff.alpha(reliability_data=reliability_data_pairs, level_of_measurement="nominal"), 3)
+        else:
+            krippendorff_annotators_more_than_hundred[index_1][index_2] = np.nan
         # print("Krippendorff's alpha with zeros between", annotator_1, "and", annotator_2, ":", krippendorff_annotators[index_1][index_2])
 
 # Plot heatmap
@@ -222,30 +227,20 @@ for i in range(len(list_annotators)):
     for j in range(len(list_annotators)):
         text = ax.text(j, i, krippendorff_annotators[i, j], ha="center", va="center", color="w")
 
-ax.set_title("Krippendorff between annotators with 0")
+ax.set_title("Krippendorff between annotators")
 fig.tight_layout()
-plt.show()
+plt.savefig("kpf_heatmap.png")
 
+# ---------------------------------
 
-
-# Without zeros
-reliability_data[reliability_data == 1] = np.nan
-
-# print(reliability_data)
-# print(reliability_data[4, 2985])
-print("Krippendorff's alpha without zeros: ", krippendorff.alpha(reliability_data=reliability_data, level_of_measurement="nominal"))
-print()
-print()
-
-for index_1, annotator_1 in enumerate(list_annotators):
-    for index_2, annotator_2 in enumerate(list_annotators):
-        reliability_data_pairs = np.vstack((reliability_data[index_1], reliability_data[index_2]))
-        krippendorff_annotators[index_1][index_2] = round(krippendorff.alpha(reliability_data=reliability_data_pairs, level_of_measurement="nominal"), 3)
-        # print("Krippendorff's alpha without zeros between", annotator_1, "and", annotator_2, ":", krippendorff_annotators[index_1][index_2])
-
-
+# Plot heatmap
 fig, ax = plt.subplots()
-im = ax.imshow(krippendorff_annotators)
+
+not_BO = np.array(list_annotators) != "BenjaminO.csv"
+kpf_matrix = krippendorff_annotators_more_than_hundred[not_BO][:,not_BO.T]
+im = ax.imshow(kpf_matrix)
+
+list_annotators.remove("BenjaminO.csv")
 
 # Show all ticks and label them with the respective list entries
 ax.set_xticks(np.arange(len(list_annotators)), labels=list_annotators)
@@ -258,8 +253,8 @@ plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
 # Loop over data dimensions and create text annotations.
 for i in range(len(list_annotators)):
     for j in range(len(list_annotators)):
-        text = ax.text(j, i, krippendorff_annotators[i, j], ha="center", va="center", color="w")
+        text = ax.text(j, i, kpf_matrix[i, j], ha="center", va="center", color="w")
 
-ax.set_title("Krippendorff between annotators without 0")
+ax.set_title("Krippendorff between annotators with more than 100 common tweets")
 fig.tight_layout()
-plt.show()
+plt.savefig("kpf_heatmap_more_than_100_common_tweets.png")
