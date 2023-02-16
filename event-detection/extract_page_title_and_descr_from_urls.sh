@@ -68,7 +68,11 @@ rm ${BASE_NAME}_links.csv
 
 gzip -d ${BASE_NAME}_originals_with_RT.csv.gz
 
-xsv join --left links ${BASE_NAME}_originals_with_RT.csv links ${BASE_NAME}_links_with_extraction.csv | \
-gzip -c > ${BASE_NAME}_originals_with_RT_extraction.csv.gz
+xsv explode links \| ${BASE_NAME}_originals_with_RT.csv > ${BASE_NAME}_originals_with_RT_exploded.csv
+
+xsv join --left links ${BASE_NAME}_originals_with_RT_exploded.csv links ${BASE_NAME}_links_with_extraction.csv | \
+xsv select 1-55,57- | \
+gzip -c > ${BASE_NAME}_originals_with_RT_exploded_extraction.csv.gz
 rm ${BASE_NAME}_originals_with_RT.csv
+rm ${BASE_NAME}_originals_with_RT_exploded.csv
 rm ${BASE_NAME}_links_with_extraction.csv
