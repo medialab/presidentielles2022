@@ -154,7 +154,8 @@ def write_formated_dataset(source_file, urls_file, output_file):
                     ]
                     
                     if (row[title_pos] or row[description_pos]) and not choose_tweet_text(url, domain, row[text_pos], row[description_pos]):
-                        row[text_pos] = row[title_pos] + ". " + row[description_pos]
+                        text = row[title_pos] + ". " + row[description_pos]
+                        row[text_pos] = " ".join(text.split(" ")[:200])
 
                     enricher.writerow(row, add=add_list)
                     written.add(row[id_pos])
