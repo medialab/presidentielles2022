@@ -12,7 +12,7 @@ Compute some aggregated stats about events:
 # - top 5 users (idem)
 # - top 5 media (idem)
 # - first 5 users (in time)
-# - first 5 media (in time)
+- first 5 media (in time)
 """
 
 import os
@@ -41,6 +41,9 @@ for i, row in medias.iterrows():
 
 for unwanted_domain in [None, 'facebook.com','twitter.com', 'youtube.com', 'dailymotion.com']:
     media_domains.pop(unwanted_domain)
+
+media_index = {media: index for index, media in enumerate(media_domains)}
+inverted_media_index = {index: media for index, media in enumerate(media_domains)}
 
 
 def word_ngrams(tokens, stop_words=None, vocab=None, ngram_range=(1, 1)):
@@ -113,13 +116,14 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
     with open(source_file, 'r') as f:
 
-        reader = casanova.reader(csv.reader(l.replace('\0', '') for l in f))
+        reader = casanova.reader(f)
         
         text_pos = reader.headers.text
         event_pos = reader.headers.thread_id
+        media_pos = reader.headers.selected_domain
         
         term_frequency = defaultdict(int)
-        events_stats = defaultdict(lambda: {"nb_words": 0, "nb_docs": 0, "tf": defaultdict(int)})
+        events_stats = defaultdict(lambda: {"nb_words": 0, "nb_docs": 0, "tf": defaultdict(int), "media": []})
         n = 0
         token_pattern=re.compile(r'[a-z]+')
 
@@ -127,6 +131,11 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             event_id = format_thread_id(row[event_pos])
             stats = events_stats[event_id]
             stats["nb_docs"] += 1
+            if row[media_pos] in media_index and len(stats["media"]) < 5:
+                media = media_index[row[media_pos]]
+                if media not in stats["media"]:
+                    stats["media"].append(media)
+
             for token in word_ngrams(token_pattern.findall(row[text_pos].lower()), vocab=vocab, ngram_range=(1, 2)):
                 stats["tf"][token] += 1
                 term_frequency[token] += 1
@@ -135,14 +144,15 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words"])
+            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
+                first_media = [inverted_media_index[index] for index in stats["media"]]
                 if nb_docs >= min_nb_docs:
                     nb_words = stats["nb_words"]
                     top_5 = get_top_k_chi_squares(nb_words, stats["tf"], term_frequency, n, 5)
-                    writer.writerow([event, nb_docs, nb_words, "|".join(top_5)])
+                    writer.writerow([event, nb_docs, nb_words, "|".join(top_5), "|".join(first_media)])
 
                 
 
