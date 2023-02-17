@@ -27,7 +27,6 @@ from ural import get_domain_name
 
 
 csv.field_size_limit(sys.maxsize)
-TOTAL_TWEETS = 7015695
 
 medias = pd.read_csv('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv')
 categories_sorted = ['Mainstream Media', 'Opinion Journalism', 'Counter-Informational Space', 'Periphery', None]
@@ -65,7 +64,7 @@ def choose_tweet_text(url, domain, title, description):
     or title == "Bloomberg"
 
 
-def one_url_per_tweet_preferably_mainstream_media(source_file, output_file):
+def one_url_per_tweet_preferably_mainstream_media(source_file, output_file, total_tweets):
     if os.path.exists(output_file):
         with open(output_file, 'r') as f:
             tweets = json.load(f)
@@ -73,13 +72,13 @@ def one_url_per_tweet_preferably_mainstream_media(source_file, output_file):
 
     tweets = {}
     with open(source_file, 'r') as f:
-        reader = casanova.reader(csv.reader(l.replace('\0', '') for l in f))
+        reader = casanova.reader(f, ignore_null_bytes=True)
         
         id_pos = reader.headers.id
         links_pos = reader.headers.links
         url_pos = reader.headers.canonical_url
         
-        for row in tqdm(reader, total=TOTAL_TWEETS):
+        for row in tqdm(reader, total=total_tweets):
             if row[url_pos]:
                 url = row[url_pos]
             else:
@@ -100,19 +99,26 @@ def one_url_per_tweet_preferably_mainstream_media(source_file, output_file):
     return tweets
 
 
-def write_formated_dataset(source_file, urls_file, output_file):
-    tweets = one_url_per_tweet_preferably_mainstream_media(source_file, urls_file)
+def write_formated_dataset(source_file, urls_file, output_file, total_tweets):
+    tweets = one_url_per_tweet_preferably_mainstream_media(source_file, urls_file, total_tweets)
     added_fields = ["tweet_text", "page_title", "page_description", "page_date", "selected_url", "selected_domain"]
     with open(source_file, 'r') as f,\
     open(output_file, 'w') as of:
-        enricher = casanova.enricher(csv.reader(l.replace('\0', '') for l in f), of, keep=[
+        enricher = casanova.enricher(
+            f,
+            of,
+            keep=[
             "id", 
             "timestamp_utc", 
             "user_id",
+            "user_screen_name",
             "links",
             "domains",
             "text"
-        ], add=added_fields)
+            ],
+            add=added_fields,
+            ignore_null_bytes=True
+        )
         
         id_pos = enricher.headers.id
         links_pos = enricher.headers.links
@@ -125,8 +131,7 @@ def write_formated_dataset(source_file, urls_file, output_file):
         text_pos = enricher.headers.text
         
         written = set()
-
-        for row in tqdm(enricher, total=TOTAL_TWEETS):
+        for row in tqdm(enricher, total=total_tweets):
             if row[url_pos]:
                 url = row[url_pos]
             else:
@@ -177,4 +182,6 @@ if __name__ == '__main__':
     formated_file = sys.argv[3]
     assert formated_file.endswith('.csv')
 
-    write_formated_dataset(tweets_file, urls_file, formated_file)
+    tweet_count = int(sys.argv[4])
+
+    write_formated_dataset(tweets_file, urls_file, formated_file, tweet_count)
