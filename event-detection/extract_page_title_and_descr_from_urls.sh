@@ -49,7 +49,7 @@ normalized_url
 
 # Extract title and description
 minet extract ${BASE_NAME}_fetch_report.csv --total $COUNT | \
-xsv select normalized_url,canonical_url,title,description,error,extract_error | gzip -c > ${BASE_NAME}_extraction.csv.gz
+xsv select normalized_url,canonical_url,title,description,date,error,extract_error | gzip -c > ${BASE_NAME}_extraction.csv.gz
 rm -r downloaded
 gzip ${BASE_NAME}_fetch_report.csv
 

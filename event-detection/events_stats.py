@@ -5,8 +5,8 @@
 Compute some aggregated stats about events:
 - nb of tweets
 - nb of words
-# - start date
-# - end date
+- start date
+- end date
 # - day with max nb of tweets
 - top 5 words (according to chi2 metric)
 # - top 5 users (idem)
@@ -19,6 +19,7 @@ import os
 import csv
 import sys
 import casanova
+from datetime import datetime
 import pandas as pd
 from tqdm import tqdm
 from ural import get_domain_name
@@ -121,16 +122,31 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         text_pos = reader.headers.text
         event_pos = reader.headers.thread_id
         media_pos = reader.headers.selected_domain
+        date_pos = reader.headers.timestamp_utc
         
         term_frequency = defaultdict(int)
-        events_stats = defaultdict(lambda: {"nb_words": 0, "nb_docs": 0, "tf": defaultdict(int), "media": []})
+        events_stats = defaultdict(lambda: {
+            "nb_words": 0,
+            "nb_docs": 0,
+            "tf": defaultdict(int),
+            "media": [],
+            }
+            )
         n = 0
         token_pattern=re.compile(r'[a-z]+')
 
         for row in tqdm(reader, total=TOTAL_TWEETS):
             event_id = format_thread_id(row[event_pos])
-            stats = events_stats[event_id]
+
+            if event_id not in events_stats:
+                stats = events_stats[event_id]
+                stats["start_date"] = int(row[date_pos])
+            else:
+                stats = events_stats[event_id]
+            stats["end_date"] = int(row[date_pos])
+
             stats["nb_docs"] += 1
+
             if row[media_pos] in media_index and len(stats["media"]) < 5:
                 media = media_index[row[media_pos]]
                 if media not in stats["media"]:
@@ -144,7 +160,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media"])
+            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media", "start_date", "end_date"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
