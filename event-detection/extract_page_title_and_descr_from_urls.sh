@@ -29,8 +29,10 @@ xsv select normalized_url | \
 xsv sort -u > ${BASE_NAME}_normalized_url_sorted.csv
 
 # Shuffle the result
-COUNT=`xsv count ${BASE_NAME}_normalized_url_sorted.csv`
-xsv sample $COUNT ${BASE_NAME}_normalized_url_sorted.csv | gzip -c > ${BASE_NAME}_normalized_url.csv.gz
+xsv enum --uuid ${BASE_NAME}_normalized_url_sorted.csv | \
+xsv sort -s uuid | \
+xsv select '!uuid' | \
+gzip -c > ${BASE_NAME}_normalized_url.csv.gz
 rm ${BASE_NAME}_normalized_url_sorted.csv
 
 # Fetch urls
