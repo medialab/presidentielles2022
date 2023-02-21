@@ -168,7 +168,17 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 if nb_docs >= min_nb_docs:
                     nb_words = stats["nb_words"]
                     top_5 = get_top_k_chi_squares(nb_words, stats["tf"], term_frequency, n, 5)
-                    writer.writerow([event, nb_docs, nb_words, "|".join(top_5), "|".join(first_media)])
+                    writer.writerow(
+                        [
+                            event,
+                            nb_docs,
+                            nb_words,
+                            "|".join(top_5),
+                            "|".join(first_media),
+                            datetime.fromtimestamp(stats["start_date"]),
+                            datetime.fromtimestamp(stats["end_date"])
+                        ]
+                    )
 
                 
 
