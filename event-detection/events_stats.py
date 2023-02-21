@@ -7,7 +7,7 @@ Compute some aggregated stats about events:
 - nb of words
 - start date
 - end date
-# - day with max nb of tweets
+- day with max nb of tweets
 - top 5 words (according to chi2 metric)
 # - top 5 users (idem)
 # - top 5 media (idem)
@@ -18,6 +18,7 @@ Compute some aggregated stats about events:
 import os
 import csv
 import sys
+import pytz
 import casanova
 from datetime import datetime
 import pandas as pd
@@ -29,6 +30,7 @@ import re
 
 csv.field_size_limit(sys.maxsize)
 TOTAL_TWEETS = 6896842
+tz = pytz.timezone("Europe/Paris")
 
 medias = pd.read_csv('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv')
 categories_sorted = ['Mainstream Media', 'Opinion Journalism', 'Counter-Informational Space', 'Periphery', None]
@@ -128,6 +130,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         events_stats = defaultdict(lambda: {
             "nb_words": 0,
             "nb_docs": 0,
+            "max_tweets_per_day": 1,
+            "nb_tweets_current_day": 0,
             "tf": defaultdict(int),
             "media": [],
             }
@@ -138,14 +142,31 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         for row in tqdm(reader, total=TOTAL_TWEETS):
             event_id = format_thread_id(row[event_pos])
 
+            current_date = int(row[date_pos])
+            current_day = datetime.fromtimestamp(current_date, tz=tz).date()
+
             if event_id not in events_stats:
                 stats = events_stats[event_id]
-                stats["start_date"] = int(row[date_pos])
+                stats["start_date"] = current_date
+                stats["max_day"] = current_day
+                previous_day = current_day
             else:
                 stats = events_stats[event_id]
-            stats["end_date"] = int(row[date_pos])
+                previous_day =  datetime.fromtimestamp(stats["end_date"], tz=tz).date()
+
+            stats["end_date"] = current_date
 
             stats["nb_docs"] += 1
+
+            if current_day != previous_day:
+                previous_day = current_day
+                stats["nb_tweets_current_day"] = 1
+            else:
+                stats["nb_tweets_current_day"] += 1
+
+            if stats["nb_tweets_current_day"] > stats["max_tweets_per_day"]:
+                stats["max_tweets_per_day"] = stats["nb_tweets_current_day"]
+                stats["max_day"] = current_day
 
             if row[media_pos] in media_index and len(stats["media"]) < 5:
                 media = media_index[row[media_pos]]
@@ -160,7 +181,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media", "start_date", "end_date"])
+            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media", "start_date", "end_date", "max_docs_date"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -175,12 +196,11 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             nb_words,
                             "|".join(top_5),
                             "|".join(first_media),
-                            datetime.fromtimestamp(stats["start_date"]),
-                            datetime.fromtimestamp(stats["end_date"])
+                            datetime.fromtimestamp(stats["start_date"], tz=tz).date(),
+                            datetime.fromtimestamp(stats["end_date"], tz=tz).date(),
+                            stats["max_day"]
                         ]
                     )
-
-                
 
 if __name__ == '__main__':
     in_file = sys.argv[1]
