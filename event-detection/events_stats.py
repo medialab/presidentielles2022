@@ -13,6 +13,7 @@ Compute some aggregated stats about events:
 # - top 5 media (idem)
 # - first 5 users (in time)
 - first 5 media (in time)
+- French MPs tweeting in the event
 """
 
 import os
@@ -35,7 +36,6 @@ tz = pytz.timezone("Europe/Paris")
 medias = pd.read_csv('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv')
 categories_sorted = ['Mainstream Media', 'Opinion Journalism', 'Counter-Informational Space', 'Periphery', None]
 
-
 media_domains = dict()
 for i, row in medias.iterrows():
     if row['wheel_category'] in categories_sorted:
@@ -48,6 +48,12 @@ for unwanted_domain in [None, 'facebook.com','twitter.com', 'youtube.com', 'dail
 media_index = {media: index for index, media in enumerate(media_domains)}
 inverted_media_index = {index: media for index, media in enumerate(media_domains)}
 
+mp = pd.read_csv('https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv')
+mp_ids = dict()
+for i, row in mp.iterrows():
+    mp_ids[int(row["twitter_id"])] = row["nom"]
+
+user_index = {}
 
 def word_ngrams(tokens, stop_words=None, vocab=None, ngram_range=(1, 1)):
     """Turn tokens into a sequence of n-grams after stop words filtering.
@@ -125,7 +131,9 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         event_pos = reader.headers.thread_id
         media_pos = reader.headers.selected_domain
         date_pos = reader.headers.timestamp_utc
-        
+        user_id_pos = reader.headers.user_id
+        user_name_pos = reader.headers.user_screen_name
+
         term_frequency = defaultdict(int)
         events_stats = defaultdict(lambda: {
             "nb_words": 0,
@@ -134,6 +142,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "nb_tweets_current_day": 0,
             "tf": defaultdict(int),
             "media": [],
+            "mps": set()
             }
             )
         n = 0
@@ -158,6 +167,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
             stats["nb_docs"] += 1
 
+            user_id = int(row[user_id_pos])
+            if user_id in mp_ids:
+                stats["mps"].add(user_id)
+
             if current_day != previous_day:
                 previous_day = current_day
                 stats["nb_tweets_current_day"] = 1
@@ -181,7 +194,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media", "start_date", "end_date", "max_docs_date"])
+            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media", "start_date", "end_date", "max_docs_date", "MPs"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -198,7 +211,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             "|".join(first_media),
                             datetime.fromtimestamp(stats["start_date"], tz=tz).date(),
                             datetime.fromtimestamp(stats["end_date"], tz=tz).date(),
-                            stats["max_day"]
+                            stats["max_day"],
+                            "|".join([mp_ids[user_id] for user_id in stats["mps"]])
                         ]
                     )
 
