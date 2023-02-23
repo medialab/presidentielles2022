@@ -77,21 +77,23 @@ def one_url_per_tweet_preferably_mainstream_media(source_file, output_file, tota
         id_pos = reader.headers.id
         links_pos = reader.headers.links
         url_pos = reader.headers.canonical_url
+        lang_pos = reader.headers.lang
         
         for row in tqdm(reader, total=total_tweets):
-            if row[url_pos]:
-                url = row[url_pos]
-            else:
-                url = row[links_pos]
-            if row[id_pos] not in tweets:
-                tweets[row[id_pos]] = url
-            else:
-                # If there are several urls for one tweet id, keep one that is a media url with the highest rank in category order
-                domain = get_domain_name(tweets[row[id_pos]])
-                challenger = get_domain_name(url)
-                if challenger in media_domains:
-                    if categories_sorted.index(media_domains[challenger]) < categories_sorted.index(media_domains.get(domain, None)):
-                        tweets[row[id_pos]] = url
+            if row[lang_pos] == "fr":
+                if row[url_pos]:
+                    url = row[url_pos]
+                else:
+                    url = row[links_pos]
+                if row[id_pos] not in tweets:
+                    tweets[row[id_pos]] = url
+                else:
+                    # If there are several urls for one tweet id, keep one that is a media url with the highest rank in category order
+                    domain = get_domain_name(tweets[row[id_pos]])
+                    challenger = get_domain_name(url)
+                    if challenger in media_domains:
+                        if categories_sorted.index(media_domains[challenger]) < categories_sorted.index(media_domains.get(domain, None)):
+                            tweets[row[id_pos]] = url
     
     with open(output_file, 'w') as f:
         json.dump(tweets, f)
@@ -112,6 +114,7 @@ def write_formated_dataset(source_file, urls_file, output_file, total_tweets):
             "timestamp_utc", 
             "user_id",
             "user_screen_name",
+            "retweet_count",
             "links",
             "domains",
             "text"
@@ -129,48 +132,49 @@ def write_formated_dataset(source_file, urls_file, output_file, total_tweets):
         date_pos = enricher.headers.date
         
         text_pos = enricher.headers.text
+        lang_pos = enricher.headers.lang
         
         written = set()
         for row in tqdm(enricher, total=total_tweets):
-            if row[url_pos]:
-                url = row[url_pos]
-            else:
-                url = row[links_pos]
+            if row[lang_pos] == "fr":
+                if row[url_pos]:
+                    url = row[url_pos]
+                else:
+                    url = row[links_pos]
+                if url:
+                    if tweets[row[id_pos]] == url:
+                        if row[id_pos] in written:
+                            continue
+                        domain = get_domain_name(url)
                         
-            if url:
-                if tweets[row[id_pos]] == url:
-                    if row[id_pos] in written:
-                        continue
-                    domain = get_domain_name(url)
-                    
+                        add_list = [
+                            # tweet_text
+                            row[text_pos],
+                            # page_title
+                            row[title_pos],
+                            # page_description
+                            row[description_pos],
+                            # page_date
+                            row[date_pos],
+                            # selected_url
+                            url,
+                            # selected_domain
+                            domain
+                        ]
+                        
+                        if (row[title_pos] or row[description_pos]) and not choose_tweet_text(url, domain, row[text_pos], row[description_pos]):
+                            text = row[title_pos] + ". " + row[description_pos]
+                            row[text_pos] = " ".join(text.split(" ")[:200])
+
+                        enricher.writerow(row, add=add_list)
+                        written.add(row[id_pos])
+
+                else:
                     add_list = [
                         # tweet_text
-                        row[text_pos],
-                        # page_title
-                        row[title_pos],
-                        # page_description
-                        row[description_pos],
-                        # page_date
-                        row[date_pos],
-                        # selected_url
-                        url,
-                        # selected_domain
-                        domain
-                    ]
-                    
-                    if (row[title_pos] or row[description_pos]) and not choose_tweet_text(url, domain, row[text_pos], row[description_pos]):
-                        text = row[title_pos] + ". " + row[description_pos]
-                        row[text_pos] = " ".join(text.split(" ")[:200])
-
+                        row[text_pos]
+                    ] + ["" for i in range(len(added_fields) - 1)]
                     enricher.writerow(row, add=add_list)
-                    written.add(row[id_pos])
-
-            else:
-                add_list = [
-                    # tweet_text
-                    row[text_pos]
-                ] + ["" for i in range(len(added_fields) - 1)]
-                enricher.writerow(row, add=add_list)
 
 if __name__ == '__main__':
     tweets_file = sys.argv[1]
