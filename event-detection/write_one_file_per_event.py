@@ -9,8 +9,6 @@ Keep in memory a list of all tweet ids belonging to these events.
 Go through the complete tweet export files, and write two files
 per event, one that contains only original ids, the other that contains
 original ids and retweets.
-
-todo: add subfolders
 """
 
 import os
@@ -29,7 +27,11 @@ mp_ids = set(mp.twitter_id.unique())
 def get_file_path(words, event_id, output_folder, no_RT=True):
 
     event_id = str(event_id)
-    subfolder = os.path.join(output_folder, event_id[0])
+    prefix = event_id[:3]
+    for i in range(2,4):
+        if len(prefix) < i:
+            prefix += "0"
+    subfolder = os.path.join(output_folder, prefix)
     os.makedirs(subfolder, exist_ok=True)
 
     file_path = os.path.join(subfolder, event_id + "_" + words.replace(" ", "_"))
@@ -99,13 +101,15 @@ def write_files(event_file, stats_file, tweets_files_path, output_folder, total)
             event_id = int(row[thread_id_pos])
             words = events.get(event_id)
             if words:
+                tweets[int(row[id_pos])] = event_id
                 write_tweet_in_event_specific_file(words, event_id, output_folder, row, headers, positions)
 
-    pbar = tqdm(total=total)
+    pbar = tqdm(total=int(total))
 
     for file in glob.glob(tweets_files_path):
-        with gzip.open(file, mode="rt") as f:
-            reader = casanova.reader(f)
+        # with gzip.open(file, mode="rt") as f:
+        with open(file, "r") as f:
+            reader = casanova.reader(f, ignore_null_bytes=True)
             id_pos = reader.headers.id
             text_pos = reader.headers.text
             time_pos = reader.headers.local_time
@@ -131,11 +135,14 @@ def write_files(event_file, stats_file, tweets_files_path, output_folder, total)
                     words = events[event_id]
                     write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False)
                 else:
-                    retweeted_id = int(row[retweeted_id_pos])
-                    event_id = tweets.get(retweeted_id)
-                    if event_id:
-                        words = events[event_id]
-                        write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False, retweeted_id=retweeted_id)
+
+                    retweeted_id = row[retweeted_id_pos]
+                    if retweeted_id:
+                        retweeted_id = int(retweeted_id)
+                        event_id = tweets.get(retweeted_id)
+                        if event_id:
+                            words = events[event_id]
+                            write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False, retweeted_id=retweeted_id)
 
                 pbar.update(1)
     pbar.close()
@@ -154,6 +161,7 @@ if __name__ == '__main__':
     tweets_files = sys.argv[3]
 
     output_folder = sys.argv[4]
+    assert os.path.isdir(output_folder)
 
     total = sys.argv[5]
 
