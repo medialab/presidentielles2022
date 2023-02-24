@@ -12,8 +12,9 @@ Compute some aggregated stats about events:
 # - top 5 users (idem)
 # - top 5 media (idem)
 # - first 5 users (in time)
-- first 5 media (in time)
+- media shared in the event
 - French MPs tweeting in the event
+
 """
 
 import os
@@ -25,6 +26,7 @@ from datetime import datetime
 import pandas as pd
 from tqdm import tqdm
 from ural import get_domain_name
+from ural.lru import LRUTrie
 from collections import defaultdict
 import re
 
@@ -36,17 +38,16 @@ tz = pytz.timezone("Europe/Paris")
 medias = pd.read_csv('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv')
 categories_sorted = ['Mainstream Media', 'Opinion Journalism', 'Counter-Informational Space', 'Periphery', None]
 
-media_domains = dict()
+media_domains = LRUTrie()
+media_index = {}
+inverted_media_index = {}
 for i, row in medias.iterrows():
     if row['wheel_category'] in categories_sorted:
+        media_index[row["name"]] = i
+        inverted_media_index[i] = row["name"]
         for prefix in row['prefixes'].split('|'):
-            media_domains[get_domain_name(prefix)] = row['wheel_category']
-
-for unwanted_domain in [None, 'facebook.com','twitter.com', 'youtube.com', 'dailymotion.com']:
-    media_domains.pop(unwanted_domain)
-
-media_index = {media: index for index, media in enumerate(media_domains)}
-inverted_media_index = {index: media for index, media in enumerate(media_domains)}
+            if get_domain_name(prefix) not in [None, 'facebook.com','twitter.com', 'youtube.com', 'dailymotion.com']:
+                media_domains.set(prefix, row['name'])
 
 mp = pd.read_csv('https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv')
 mp_ids = dict()
@@ -129,7 +130,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         
         text_pos = reader.headers.text
         event_pos = reader.headers.thread_id
-        media_pos = reader.headers.selected_domain
+        url_pos = reader.headers.selected_url
         date_pos = reader.headers.timestamp_utc
         user_id_pos = reader.headers.user_id
         user_name_pos = reader.headers.user_screen_name
@@ -141,7 +142,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "max_tweets_per_day": 1,
             "nb_tweets_current_day": 0,
             "tf": defaultdict(int),
-            "media": [],
+            "media": dict(),
             "mps": set()
             }
             )
@@ -181,10 +182,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["max_tweets_per_day"] = stats["nb_tweets_current_day"]
                 stats["max_day"] = current_day
 
-            if row[media_pos] in media_index and len(stats["media"]) < 5:
-                media = media_index[row[media_pos]]
-                if media not in stats["media"]:
-                    stats["media"].append(media)
+            media = media_domains.match(row[url_pos])
+            if media:
+                media = media_index[media]
+                stats["media"][media] = None
 
             for token in word_ngrams(token_pattern.findall(row[text_pos].lower()), vocab=vocab, ngram_range=(1, 2)):
                 stats["tf"][token] += 1
@@ -194,11 +195,11 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "first_5_media", "start_date", "end_date", "max_docs_date", "MPs"])
+            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "media", "start_date", "end_date", "max_docs_date", "MPs"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
-                first_media = [inverted_media_index[index] for index in stats["media"]]
+                all_media = [inverted_media_index[index] for index in stats["media"]]
                 if nb_docs >= min_nb_docs:
                     nb_words = stats["nb_words"]
                     top_5 = get_top_k_chi_squares(nb_words, stats["tf"], term_frequency, n, 5)
@@ -208,7 +209,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             nb_docs,
                             nb_words,
                             "|".join(top_5),
-                            "|".join(first_media),
+                            "|".join(all_media),
                             datetime.fromtimestamp(stats["start_date"], tz=tz).date(),
                             datetime.fromtimestamp(stats["end_date"], tz=tz).date(),
                             stats["max_day"],
@@ -228,4 +229,4 @@ if __name__ == '__main__':
 
     format_thread_id = int if len(sys.argv) == 5 else str
 
-    event_stats(in_file, vocab_file, formated_file, format_thread_id)
+    # event_stats(in_file, vocab_file, formated_file, format_thread_id)
