@@ -4,11 +4,10 @@
 """
 Keep in memory a list of all events listed by events_stats.py .
 
-Keep in memory a list of all tweet ids belonging to these events.
+Keep in memory a list of all original tweet ids belonging to these events.
 
-Go through the complete tweet export files, and write two files
-per event, one that contains only original ids, the other that contains
-original ids and retweets.
+Go through the complete tweet export files (all retweets), and write a file
+that contains both original ids and retweets, associated with their event id.
 """
 
 import os
@@ -44,7 +43,7 @@ def write_tweet_in_event_specific_file(words, event_id, output_folder, row, head
     
     file_path = get_file_path(words, event_id, output_folder, no_RT=no_RT)
     write_list = [row[pos] for pos in positions]
-    write_list.append("1" if int(positions[-1]) in mp_ids else "")
+    write_list.append("1" if int(row[positions[-1]]) in mp_ids else "")
 
     if not no_RT:
         write_list.append(retweeted_id)
@@ -59,7 +58,7 @@ def write_tweet_in_event_specific_file(words, event_id, output_folder, row, head
             writer = csv.writer(of)
             writer.writerow(write_list)
 
-def write_files(event_file, stats_file, tweets_files_path, output_folder, total):
+def write_tweets(event_file, stats_file, tweets_files_path, outputfile, total):
     events = {}
     with open(stats_file, "r") as f:
         reader = casanova.reader(f)
@@ -76,64 +75,55 @@ def write_files(event_file, stats_file, tweets_files_path, output_folder, total)
         reader = casanova.reader(f)
         id_pos = reader.headers.id
         thread_id_pos = reader.headers.thread_id
-        page_title_pos = reader.headers.page_title
-        page_description_pos = reader.headers.page_description
-        tweet_text_pos = reader.headers.tweet_text
-        time_pos = reader.headers.formatted_date
-        text_pos = reader.headers.text
-        user_pos = reader.headers.user_screen_name
+        # page_title_pos = reader.headers.page_title
+        # page_description_pos = reader.headers.page_description
+        # tweet_text_pos = reader.headers.tweet_text
+        # time_pos = reader.headers.formatted_date
+        # text_pos = reader.headers.text
+        # user_pos = reader.headers.user_screen_name
         user_id_pos = reader.headers.user_id
 
-        headers = [
-                "id", 
-                "text", 
-                "page_title", 
-                "page_description", 
-                "tweet_text", 
-                "local_time", 
-                "user_screen_name", 
-                "user_id", 
-                "is_MP"
-                ]
-        positions = [id_pos, text_pos, page_title_pos, page_description_pos, tweet_text_pos, time_pos, user_pos, user_id_pos]
+        # headers = [
+        #         "id", 
+        #         "text", 
+        #         "page_title", 
+        #         "page_description", 
+        #         "tweet_text", 
+        #         "local_time", 
+        #         "user_screen_name", 
+        #         "user_id", 
+        #         "is_MP"
+        #         ]
+        # positions = [id_pos, text_pos, page_title_pos, page_description_pos, tweet_text_pos, time_pos, user_pos, user_id_pos]
 
         for row in tqdm(reader):
             event_id = int(row[thread_id_pos])
             words = events.get(event_id)
             if words:
                 tweets[int(row[id_pos])] = event_id
-                write_tweet_in_event_specific_file(words, event_id, output_folder, row, headers, positions)
+                #write_tweet_in_event_specific_file(words, event_id, output_folder, row, headers, positions)
 
     pbar = tqdm(total=int(total))
 
     for file in glob.glob(tweets_files_path):
         # with gzip.open(file, mode="rt") as f:
-        with open(file, "r") as f:
-            reader = casanova.reader(f, ignore_null_bytes=True)
-            id_pos = reader.headers.id
-            text_pos = reader.headers.text
-            time_pos = reader.headers.local_time
-            user_pos = reader.headers.user_screen_name
-            user_id_pos = reader.headers.user_id
-            positions = [id_pos, text_pos, time_pos, user_pos, user_id_pos]
-            retweeted_id_pos = reader.headers.retweeted_id
+        print(file)
+        with open(file, "r") as f, open(outputfile, "a") as of:
+            enricher = casanova.enricher(f, of, ignore_null_bytes=True, 
+                                         keep=["id", "text", "local_time", "user_screen_name", "user_id", "retweeted_id"],
+                                         add=["thread_id", "is_MP"]
+                                         )
+            id_pos = enricher.headers.id
+            retweeted_id_pos = enricher.headers.retweeted_id
+            user_id_pos = enricher.headers.user_id
 
-            new_headers = [
-                "id",
-                "text",
-                "local_time",
-                "user_screen_name",
-                "user_id",
-                "is_MP",
-                "retweeted_id"
-                ]
 
-            for row in reader:
+            for row in enricher:
                 event_id = tweets.get(int(row[id_pos]))
 
                 if event_id:
-                    words = events[event_id]
-                    write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False)
+                    enricher.writerow(row, [str(event_id), "1" if int(row[user_id_pos]) in mp_ids else ""])
+                    #write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False)
                 else:
 
                     retweeted_id = row[retweeted_id_pos]
@@ -141,8 +131,8 @@ def write_files(event_file, stats_file, tweets_files_path, output_folder, total)
                         retweeted_id = int(retweeted_id)
                         event_id = tweets.get(retweeted_id)
                         if event_id:
-                            words = events[event_id]
-                            write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False, retweeted_id=retweeted_id)
+                            enricher.writerow(row, [str(event_id), "1" if int(row[user_id_pos]) in mp_ids else ""])
+                            #write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False, retweeted_id=retweeted_id)
 
                 pbar.update(1)
     pbar.close()
@@ -160,9 +150,10 @@ if __name__ == '__main__':
 
     tweets_files = sys.argv[3]
 
-    output_folder = sys.argv[4]
-    assert os.path.isdir(output_folder)
+    output_file = sys.argv[4]
+    dir = os.path.dirname(output_file)
+    assert os.path.isdir(dir)
 
     total = sys.argv[5]
 
-    write_files(event_file, stats_file, tweets_files, output_folder, total)
+    write_tweets(event_file, stats_file, tweets_files, output_file, total)
