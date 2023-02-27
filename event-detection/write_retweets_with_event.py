@@ -19,9 +19,10 @@ import casanova
 import pandas as pd
 from tqdm import tqdm
 
+from extract_entities import EntityExtractor
 
-mp = pd.read_csv('https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv')
-mp_ids = set(mp.twitter_id.unique())
+extractor = EntityExtractor()
+is_mp = extractor.is_mp
 
 def get_file_path(words, event_id, output_folder, no_RT=True):
 
@@ -122,7 +123,7 @@ def write_tweets(event_file, stats_file, tweets_files_path, outputfile, total):
                 event_id = tweets.get(int(row[id_pos]))
 
                 if event_id:
-                    enricher.writerow(row, [str(event_id), "1" if int(row[user_id_pos]) in mp_ids else ""])
+                    enricher.writerow(row, [str(event_id), "1" if is_mp(row[user_id_pos]) else ""])
                     #write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False)
                 else:
 
@@ -131,7 +132,7 @@ def write_tweets(event_file, stats_file, tweets_files_path, outputfile, total):
                         retweeted_id = int(retweeted_id)
                         event_id = tweets.get(retweeted_id)
                         if event_id:
-                            enricher.writerow(row, [str(event_id), "1" if int(row[user_id_pos]) in mp_ids else ""])
+                            enricher.writerow(row, [str(event_id), "1" if is_mp(row[user_id_pos]) else ""])
                             #write_tweet_in_event_specific_file(words, event_id, output_folder, row, new_headers, positions, no_RT=False, retweeted_id=retweeted_id)
 
                 pbar.update(1)
