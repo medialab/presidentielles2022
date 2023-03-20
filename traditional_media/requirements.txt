@@ -1,0 +1,4 @@
+polars==0.16.14
+pandas==1.5.3
+jupyterlab==3.6.2
+ural==0.40.0
