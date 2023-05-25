@@ -5,10 +5,11 @@ set -euo pipefail
 INPUT_FILE=$1
 BASE_NAME=$(basename ${INPUT_FILE} | sed "s/\..*//")
 
-# Select original tweets (not retweets) that have been retweeted once or more
+# Select original tweets (not retweets) in French that have been retweeted once or more
 zcat $INPUT_FILE | \
 xsv search -s retweeted_id . -v | \
 xsv search -s retweet_count ^0$ -v | \
+xsv search -s lang ^fr$ | \
 gzip -c > ${BASE_NAME}_originals_with_RT.csv.gz
 
 # Select tweets that have one or several links, and normalize urls. Deduplicate on links column.
