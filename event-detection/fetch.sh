@@ -20,7 +20,7 @@ if test -z "$OUTPUT_FILE"; then
   exit 1
 fi
 
-minet fetch url $INPUT_FILE  \
+minet fetch url -i $INPUT_FILE  \
     --throttle 0 \
     --domain-parallelism 4 \
     --compress \

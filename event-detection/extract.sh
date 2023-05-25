@@ -21,4 +21,4 @@ if test -z "$OUTPUT_FILE"; then
 fi
 
 
-minet extract -i $INPUT_DIR $INPUT_FILE -o $OUTPUT_FILE
+minet extract -I $INPUT_DIR -i $INPUT_FILE -o $OUTPUT_FILE

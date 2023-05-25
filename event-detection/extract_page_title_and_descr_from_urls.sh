@@ -5,6 +5,10 @@ set -euo pipefail
 INPUT_FILE=$1
 BASE_NAME=$(basename ${INPUT_FILE} | sed "s/\..*//")
 
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+pyenv activate minet
+
 echo "Select original tweets (not retweets) in French that have been retweeted once or more"
 zcat $INPUT_FILE | \
 xsv search -s retweeted_id . -v | \
@@ -16,7 +20,7 @@ echo "Select tweets that have one or several links, and normalize urls. Deduplic
 zcat ${BASE_NAME}_originals_with_RT.csv.gz | \
 xsv select links | \
 xsv search -s links . | \
-minet url-parse links --separator \| | \
+minet url-parse links --explode \| -i - | \
 xsv search -s homepage . -v | \
 xsv search -s typo . -v | \
 xsv search -s domain_name "instagram.com|twitter.com|msn.com|1001rss.com|tiktok.com|gala.fr|lavoixdunord.fr|open.spotify.com" -v | \
@@ -38,7 +42,7 @@ rm ${BASE_NAME}_normalized_url_sorted.csv
 
 echo "Fetch urls"
 zcat ${BASE_NAME}_normalized_url.csv.gz | \
-minet fetch \
+minet fetch -i - \
 -o ${BASE_NAME}_fetch_report.csv \
 --throttle 0 \
 --domain-parallelism 4 \
@@ -48,10 +52,11 @@ minet fetch \
 --resume \
 -t 10 \
 --folder-strategy prefix-4 \
+--only-html \
 normalized_url
 
 echo "Extract title and description"
-minet extract ${BASE_NAME}_fetch_report.csv --total $COUNT | \
+minet extract -i ${BASE_NAME}_fetch_report.csv --total $COUNT | \
 xsv select normalized_url,canonical_url,title,description,date,error,extract_error | gzip -c > ${BASE_NAME}_extraction.csv.gz
 rm -r downloaded
 gzip ${BASE_NAME}_fetch_report.csv
