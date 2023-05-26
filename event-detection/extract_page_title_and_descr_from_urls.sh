@@ -40,6 +40,8 @@ xsv select '!uuid' | \
 gzip -c > ${BASE_NAME}_normalized_url.csv.gz
 rm ${BASE_NAME}_normalized_url_sorted.csv
 
+COUNT=`zcat ${BASE_NAME}_normalized_url.csv.gz | xsv count`
+
 echo "Fetch urls"
 zcat ${BASE_NAME}_normalized_url.csv.gz | \
 minet fetch -i - \
