@@ -70,20 +70,22 @@ zcat ${BASE_NAME}_extraction.csv.gz | \
 xsv select normalized_url,resolved_url,title,description,date | \
 xsv search -s title,description . > ${BASE_NAME}_successful_extraction.csv
 
-echo "Join extraction with links and links with tweets"
+echo "Join extraction with links"
 gzip -d ${BASE_NAME}_links.csv.gz
 
-xsv join normalized_url ${BASE_NAME}_links.csv normalized_url ${BASE_NAME}_successful_extraction.csv | \
-xsv select 1,2,4-7 > ${BASE_NAME}_links_with_extraction.csv
+xsv join normalized_url ${BASE_NAME}_links.csv normalized_url ${BASE_NAME}_successful_extraction.csv --prefix-right "extracted_" | \
+xsv select links,normalized_url,extracted_resolved_url,extracted_title,extracted_description,extracted_date \
+> ${BASE_NAME}_links_with_extraction.csv
 rm ${BASE_NAME}_successful_extraction.csv
 rm ${BASE_NAME}_links.csv
 
+echo "Join links with tweets"
 gzip -d ${BASE_NAME}_originals_with_RT.csv.gz
 
 xsv explode links \| ${BASE_NAME}_originals_with_RT.csv > ${BASE_NAME}_originals_with_RT_exploded.csv
 
 xsv join --left links ${BASE_NAME}_originals_with_RT_exploded.csv links ${BASE_NAME}_links_with_extraction.csv | \
-xsv select 1-55,57- | \
+xsv select 1-55,normalized_url,extracted_resolved_url,extracted_title,extracted_description,extracted_date | \
 gzip -c > ${BASE_NAME}_originals_with_RT_exploded_extraction.csv.gz
 rm ${BASE_NAME}_originals_with_RT.csv
 rm ${BASE_NAME}_originals_with_RT_exploded.csv
