@@ -58,17 +58,19 @@ minet fetch -i - \
 normalized_url
 
 echo "Extract title and description"
-minet extract -i ${BASE_NAME}_fetch_report.csv --total $COUNT | \
-xsv select normalized_url,canonical_url,title,description,date,error,extract_error | gzip -c > ${BASE_NAME}_extraction.csv.gz
+minet extract -i ${BASE_NAME}_fetch_report.csv --total $COUNT --input-dir downloaded -o ${BASE_NAME}_extraction.csv --resume
+
+xsv select normalized_url,resolved_url,title,description,date,fetch_error,extract_error ${BASE_NAME}_extraction.csv | \
+gzip -c > ${BASE_NAME}_extraction.csv.gz
 rm -r downloaded
 gzip ${BASE_NAME}_fetch_report.csv
 
 echo "Filter out empty titles"
 zcat ${BASE_NAME}_extraction.csv.gz | \
-xsv select normalized_url,canonical_url,title,description,date | \
+xsv select normalized_url,resolved_url,title,description,date | \
 xsv search -s title,description . > ${BASE_NAME}_successful_extraction.csv
 
-echo "Join extraction with links and links with tweets
+echo "Join extraction with links and links with tweets"
 gzip -d ${BASE_NAME}_links.csv.gz
 
 xsv join normalized_url ${BASE_NAME}_links.csv normalized_url ${BASE_NAME}_successful_extraction.csv | \
