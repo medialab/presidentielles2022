@@ -1,4 +1,4 @@
-casanova==0.19.2
+casanova==1.13.0
 ural==0.32.1
 tqdm==4.31.1
 requests==2.27.1
