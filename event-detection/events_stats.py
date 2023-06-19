@@ -23,7 +23,6 @@ import sys
 import pytz
 import casanova
 from datetime import datetime
-import pandas as pd
 from tqdm import tqdm
 from ural import get_domain_name
 from ural.lru import LRUTrie
@@ -35,24 +34,26 @@ csv.field_size_limit(sys.maxsize)
 TOTAL_TWEETS = 6896842
 tz = pytz.timezone("Europe/Paris")
 
-medias = pd.read_csv('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv')
 categories_sorted = ['Mainstream Media', 'Opinion Journalism', 'Counter-Informational Space', 'Periphery', None]
 
 media_domains = LRUTrie()
 media_index = {}
 inverted_media_index = {}
-for i, row in medias.iterrows():
-    if row['wheel_category'] in categories_sorted:
-        media_index[row["name"]] = i
-        inverted_media_index[i] = row["name"]
-        for prefix in row['prefixes'].split('|'):
-            if get_domain_name(prefix) not in [None, 'facebook.com','twitter.com', 'youtube.com', 'dailymotion.com']:
-                media_domains.set(prefix, row['name'])
 
-mp = pd.read_csv('https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv')
-mp_ids = dict()
-for i, row in mp.iterrows():
-    mp_ids[int(row["twitter_id"])] = row["nom"]
+with casanova.reader('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv') as reader:
+    for i, row in enumerate(reader):
+        if row[reader.headers.wheel_category] in categories_sorted:
+            name = row[reader.headers.name]
+            media_index[name] = i
+            inverted_media_index[i] = name
+            for prefix in row[reader.headers.prefixes].split('|'):
+                if get_domain_name(prefix) not in [None, 'facebook.com','twitter.com', 'youtube.com', 'dailymotion.com']:
+                    media_domains.set(prefix, name)
+
+with casanova.reader('https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv') as reader:
+    mp_ids = dict()
+    for i, row in enumerate(reader):
+        mp_ids[int(row[reader.headers.twitter_id])] = row[reader.headers.nom]
 
 user_index = {}
 
@@ -106,7 +107,7 @@ def get_top_k_chi_squares(event_count, event_frequency, frequency, n, k):
     for w, w_count in event_frequency.items():
         indep = event_count*frequency[w]/n
         chi_square = (w_count-indep)**2/indep
-        
+
         if len(scores) < k:
             scores.append(chi_square)
             words.append(w)
@@ -121,13 +122,13 @@ def get_top_k_chi_squares(event_count, event_frequency, frequency, n, k):
 
 def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=10):
     with casanova.reader(vocab_file) as reader:
-        
+
         vocab = set(t for t in reader.cells("token"))
 
     with open(source_file, 'r') as f:
 
         reader = casanova.reader(f)
-        
+
         text_pos = reader.headers.text
         event_pos = reader.headers.thread_id
         url_pos = reader.headers.selected_url
@@ -192,7 +193,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 term_frequency[token] += 1
                 stats["nb_words"] += 1
                 n += 1
-        
+
         with open(outfile, "w") as of:
             writer = csv.writer(of)
             writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "media", "start_date", "end_date", "max_docs_date", "MPs"])
@@ -229,4 +230,4 @@ if __name__ == '__main__':
 
     format_thread_id = int if len(sys.argv) == 5 else str
 
-    # event_stats(in_file, vocab_file, formated_file, format_thread_id)
+    event_stats(in_file, vocab_file, formated_file, format_thread_id)
