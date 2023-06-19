@@ -12,7 +12,8 @@ Compute some aggregated stats about events:
 # - top 5 users (idem)
 # - top 5 media (idem)
 # - first 5 users (in time)
-- media shared in the event
+- media shared in the event as urls
+- media tweeting in the event
 - French MPs tweeting in the event
 
 """
@@ -40,6 +41,8 @@ media_domains = LRUTrie()
 media_index = {}
 inverted_media_index = {}
 
+media_twitter_accounts = set()
+
 with casanova.reader('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv') as reader:
     for i, row in enumerate(reader):
         if row[reader.headers.wheel_category] in categories_sorted:
@@ -47,7 +50,11 @@ with casanova.reader('https://raw.githubusercontent.com/medialab/corpora/master/
             media_index[name] = i
             inverted_media_index[i] = name
             for prefix in row[reader.headers.prefixes].split('|'):
-                if get_domain_name(prefix) not in [None, 'facebook.com','twitter.com', 'youtube.com', 'dailymotion.com']:
+                domain = get_domain_name(prefix)
+                if domain == "twitter.com":
+                    twitter_account = prefix.split("/")[-1].lower()
+                    media_twitter_accounts.add(twitter_account)
+                elif domain not in [None, 'facebook.com', 'youtube.com', 'dailymotion.com']:
                     media_domains.set(prefix, name)
 
 with casanova.reader('https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv') as reader:
@@ -144,6 +151,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "nb_tweets_current_day": 0,
             "tf": defaultdict(int),
             "media": dict(),
+            "tweets_by_media": set(),
             "mps": set()
             }
             )
@@ -173,6 +181,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             if user_id in mp_ids:
                 stats["mps"].add(user_id)
 
+            user_screen_name = row[user_name_pos].lower()
+            if user_screen_name in media_twitter_accounts:
+                stats["tweets_by_media"].add(user_screen_name)
+
             if current_day != previous_day:
                 previous_day = current_day
                 stats["nb_tweets_current_day"] = 1
@@ -196,7 +208,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "media", "start_date", "end_date", "max_docs_date", "MPs"])
+            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "media_urls", "tweets_by_media",\
+                             "start_date", "end_date", "max_docs_date", "MPs"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -211,6 +224,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             nb_words,
                             "|".join(top_5),
                             "|".join(all_media),
+                            "|".join(stats["tweets_by_media"]),
                             datetime.fromtimestamp(stats["start_date"], tz=tz).date(),
                             datetime.fromtimestamp(stats["end_date"], tz=tz).date(),
                             stats["max_day"],
