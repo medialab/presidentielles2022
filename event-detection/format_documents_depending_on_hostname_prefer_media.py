@@ -76,9 +76,8 @@ def one_url_per_tweet_preferably_mainstream_media(source_file, output_file, tota
             return tweet_to_url_dict
 
     tweet_to_url_dict = {}
-    with open(source_file, 'r') as f:
-        reader = casanova.reader(f, strip_null_bytes_on_read=True)
 
+    with casanova.reader(source_file, strip_null_bytes_on_read=True) as reader:
         id_pos = reader.headers.id
         links_pos = reader.headers.links
         url_pos = reader.headers.extracted_resolved_url
@@ -109,77 +108,72 @@ def one_url_per_tweet_preferably_mainstream_media(source_file, output_file, tota
 def write_formated_dataset(source_file, urls_file, output_file, total_tweets):
     tweet_to_url_dict = one_url_per_tweet_preferably_mainstream_media(source_file, urls_file, total_tweets)
     added_fields = ["tweet_text", "page_title", "page_description", "page_date", "selected_url", "selected_domain"]
-    with open(source_file, 'r') as f,\
-    open(output_file, 'w') as of:
-        enricher = casanova.enricher(
-            f,
-            of,
-            select=[
-            "id",
-            "timestamp_utc",
-            "user_id",
-            "user_screen_name",
-            "retweet_count",
-            "links",
-            "domains",
-            "text"
-            ],
-            add=added_fields,
-            strip_null_bytes_on_read=True
-        )
+    with open(output_file, "w") as of:
+        with casanova.enricher(source_file, of, select=[
+                "id",
+                "timestamp_utc",
+                "user_id",
+                "user_screen_name",
+                "retweet_count",
+                "links",
+                "domains",
+                "text"
+                ],
+                add=added_fields,
+                strip_null_bytes_on_read=True) as enricher:
 
-        id_pos = enricher.headers.id
-        links_pos = enricher.headers.links
-        url_pos = enricher.headers.extracted_resolved_url
+            id_pos = enricher.headers.id
+            links_pos = enricher.headers.links
+            url_pos = enricher.headers.extracted_resolved_url
 
-        title_pos = enricher.headers.extracted_title
-        description_pos = enricher.headers.extracted_description
-        date_pos = enricher.headers.extracted_date
+            title_pos = enricher.headers.extracted_title
+            description_pos = enricher.headers.extracted_description
+            date_pos = enricher.headers.extracted_date
 
-        text_pos = enricher.headers.text
-        lang_pos = enricher.headers.lang
+            text_pos = enricher.headers.text
+            lang_pos = enricher.headers.lang
 
-        written = set()
-        for row in tqdm(enricher, total=total_tweets):
-            if row[lang_pos] == "fr":
-                if row[url_pos]:
-                    url = row[url_pos]
-                else:
-                    url = row[links_pos]
-                if url:
-                    if tweet_to_url_dict[int(row[id_pos])] == url:
-                        if int(row[id_pos]) in written:
-                            continue
-                        domain = get_domain_name(url)
+            written = set()
+            for row in tqdm(enricher, total=total_tweets):
+                if row[lang_pos] == "fr":
+                    if row[url_pos]:
+                        url = row[url_pos]
+                    else:
+                        url = row[links_pos]
+                    if url:
+                        if tweet_to_url_dict[int(row[id_pos])] == url:
+                            if int(row[id_pos]) in written:
+                                continue
+                            domain = get_domain_name(url)
 
+                            add_list = [
+                                # tweet_text
+                                row[text_pos],
+                                # page_title
+                                row[title_pos],
+                                # page_description
+                                row[description_pos],
+                                # page_date
+                                row[date_pos],
+                                # selected_url
+                                url,
+                                # selected_domain
+                                domain
+                            ]
+
+                            if (row[title_pos] or row[description_pos]) and not choose_tweet_text(url, domain, row[text_pos], row[description_pos]):
+                                text = row[title_pos] + ". " + row[description_pos]
+                                row[text_pos] = " ".join(text.split(" ")[:200])
+
+                            enricher.writerow(row, add=add_list)
+                            written.add(int(row[id_pos]))
+
+                    else:
                         add_list = [
                             # tweet_text
-                            row[text_pos],
-                            # page_title
-                            row[title_pos],
-                            # page_description
-                            row[description_pos],
-                            # page_date
-                            row[date_pos],
-                            # selected_url
-                            url,
-                            # selected_domain
-                            domain
-                        ]
-
-                        if (row[title_pos] or row[description_pos]) and not choose_tweet_text(url, domain, row[text_pos], row[description_pos]):
-                            text = row[title_pos] + ". " + row[description_pos]
-                            row[text_pos] = " ".join(text.split(" ")[:200])
-
+                            row[text_pos]
+                        ] + ["" for i in range(len(added_fields) - 1)]
                         enricher.writerow(row, add=add_list)
-                        written.add(int(row[id_pos]))
-
-                else:
-                    add_list = [
-                        # tweet_text
-                        row[text_pos]
-                    ] + ["" for i in range(len(added_fields) - 1)]
-                    enricher.writerow(row, add=add_list)
 
 if __name__ == '__main__':
     tweets_file = sys.argv[1]
