@@ -4,6 +4,7 @@ set -euo pipefail
 
 INPUT_FILE=$1
 BASE_NAME=$(basename ${INPUT_FILE} | sed "s/\..*//")
+echo $BASE_NAME
 
 eval "$(pyenv init -)"
 eval "$(pyenv virtualenv-init -)"
@@ -21,8 +22,8 @@ zcat ${BASE_NAME}_originals_with_RT.csv.gz | \
 xsv select links | \
 xsv search -s links . | \
 minet url-parse links --explode \| -i - | \
-xsv search -s homepage . -v | \
-xsv search -s typo . -v | \
+xsv search -s probably_homepage no | \
+xsv search -s probably_typo no | \
 xsv search -s domain_name "instagram.com|twitter.com|msn.com|1001rss.com|tiktok.com|gala.fr|lavoixdunord.fr|open.spotify.com" -v | \
 xsv select links,normalized_url | \
 xsv sort -u -s links | \
@@ -34,9 +35,7 @@ xsv select normalized_url | \
 xsv sort -u > ${BASE_NAME}_normalized_url_sorted.csv
 
 echo "Shuffle the result"
-xsv enum --uuid ${BASE_NAME}_normalized_url_sorted.csv | \
-xsv sort -s uuid | \
-xsv select '!uuid' | \
+xsv shuffle ${BASE_NAME}_normalized_url_sorted.csv | \
 gzip -c > ${BASE_NAME}_normalized_url.csv.gz
 rm ${BASE_NAME}_normalized_url_sorted.csv
 
@@ -48,7 +47,7 @@ minet fetch -i - \
 -o ${BASE_NAME}_fetch_report.csv \
 --throttle 0 \
 --domain-parallelism 4 \
---compress \
+--compress-on-disk \
 --total $COUNT \
 --timeout 10 \
 --resume \
