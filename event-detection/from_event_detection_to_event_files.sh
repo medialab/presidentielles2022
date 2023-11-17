@@ -31,7 +31,7 @@ echo "3. Compute events stats"
 python events_stats.py ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}_with_text.csv ${BASE_NAME}_vocab.csv ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_events_stats.csv int
 
 echo "5. Find thread ids associated to keywords"
-xsv apply lower text -c lowered_text ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}_with_text.csv | \
+xsv map "lower(text)" lowered_text ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}_with_text.csv | \
 xsv search -s lowered_text $KEYWORDS | \
 xsv frequency -s thread_id -l 0 \
 > ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_threads.csv
@@ -42,7 +42,7 @@ xsv select count,thread_id,nb_docs,top_5_words,media_urls,tweets_by_media,start_
 > ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_events_stats.csv
 
 echo "7. Filter on 10 tweets by cluster"
-casa filter "int(row.count) >= 10" ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_events_stats.csv \
+xsv filter "gte(count, 10)" ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_events_stats.csv \
 > ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_events_stats_gt10.csv
 
 echo "8. Write one file per thread for threads greater than 10"
