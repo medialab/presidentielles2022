@@ -27,7 +27,7 @@ from datetime import datetime
 from tqdm import tqdm
 from ural import get_domain_name
 from ural.lru import LRUTrie
-from collections import defaultdict
+from collections import defaultdict, Counter
 import re
 
 
@@ -143,20 +143,25 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         user_id_pos = reader.headers.user_id
         user_name_pos = reader.headers.user_screen_name
 
-        term_frequency = defaultdict(int)
-        events_stats = defaultdict(lambda: {
+        term_frequency = Counter()
+        hashtag_frequency = Counter()
+        events_stats = defaultdict(
+            lambda: {
             "nb_words": 0,
             "nb_docs": 0,
+            "nb_hashtags": 0,
             "max_tweets_per_day": 1,
             "nb_tweets_current_day": 0,
             "tf": defaultdict(int),
             "media": dict(),
             "tweets_by_media": set(),
-            "mps": set()
-            }
-            )
+            "mps": set(),
+            "hashtags": Counter()
+        })
         n = 0
-        token_pattern=re.compile(r'[a-z]+')
+        n_hashtags = 0
+        token_pattern = re.compile(r'[a-z]+')
+        hashtag_pattern = re.compile(r'#(\w+)')
 
         for row in tqdm(reader, total=TOTAL_TWEETS):
             event_id = format_thread_id(row[event_pos])
@@ -206,9 +211,18 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["nb_words"] += 1
                 n += 1
 
+            for hashtag in hashtag_pattern.findall(row[text_pos].lower()):
+                stats["hashtags"][hashtag] += 1
+                hashtag_frequency[hashtag] += 1
+                stats["nb_hashtags"] += 1
+                n_hashtags += 1
+
+
+
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_5_words", "media_urls", "tweets_by_media",\
+            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
+                             "top_hashtags", "media_urls", "tweets_by_media",\
                              "start_date", "end_date", "max_docs_date", "MPs"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
@@ -216,13 +230,18 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 all_media = [inverted_media_index[index] for index in stats["media"]]
                 if nb_docs >= min_nb_docs:
                     nb_words = stats["nb_words"]
-                    top_5 = get_top_k_chi_squares(nb_words, stats["tf"], term_frequency, n, 5)
+                    nb_hashtags = stats["nb_hashtags"]
+                    top_5_chi = get_top_k_chi_squares(nb_words, stats["tf"], term_frequency, n, 5)
+                    top_5_chi_hashtags = get_top_k_chi_squares(nb_hashtags, stats["hashtags"], hashtag_frequency, n_hashtags, 5)
+                    top_5_hashtags = [h[0] for h in stats["hashtags"].most_common(5)]
                     writer.writerow(
                         [
                             event,
                             nb_docs,
                             nb_words,
-                            "|".join(top_5),
+                            "|".join(top_5_chi),
+                            "|".join(top_5_chi_hashtags),
+                            "|".join(top_5_hashtags),
                             "|".join(all_media),
                             "|".join(stats["tweets_by_media"]),
                             datetime.fromtimestamp(stats["start_date"], tz=tz).date(),
