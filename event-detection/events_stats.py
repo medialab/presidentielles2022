@@ -142,6 +142,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         date_pos = reader.headers.timestamp_utc
         user_id_pos = reader.headers.user_id
         user_name_pos = reader.headers.user_screen_name
+        retweet_count=reader.headers.retweet_count
+        tweet_text=reader.headers.tweet_text
 
         term_frequency = Counter()
         hashtag_frequency = Counter()
@@ -156,7 +158,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "media": dict(),
             "tweets_by_media": set(),
             "mps": set(),
-            "hashtags": Counter()
+            "hashtags": Counter(),
+            "tweet_text_most_retweeted": "",
+            "user_most_retweeted":"",
+            "retweet_count_most_retweeted":""
         })
         n = 0
         n_hashtags = 0
@@ -217,13 +222,19 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["nb_hashtags"] += 1
                 n_hashtags += 1
 
+            if stats["retweet_count_most_retweeted"] < row[retweet_count]:
+                stats["retweet_count_most_retweeted"]=row[retweet_count]
+                stats["tweet_text_most_retweeted"]=row[tweet_text]
+                stats["user_most_retweeted"]=row[user_name_pos]
+            
+            
 
 
         with open(outfile, "w") as of:
             writer = csv.writer(of)
             writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
                              "top_hashtags", "media_urls", "tweets_by_media",\
-                             "start_date", "end_date", "max_docs_date", "MPs"])
+                             "start_date", "end_date", "max_docs_date", "MPs", "text_tweet_most_retweeted","user_most_retweeted"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -247,7 +258,9 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             datetime.fromtimestamp(stats["start_date"], tz=tz).date(),
                             datetime.fromtimestamp(stats["end_date"], tz=tz).date(),
                             stats["max_day"],
-                            "|".join([mp_ids[user_id] for user_id in stats["mps"]])
+                            "|".join([mp_ids[user_id] for user_id in stats["mps"]]),
+                            stats["tweet_text_most_retweeted"],
+                            stats["user_most_retweeted"]
                         ]
                     )
 
