@@ -161,7 +161,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "hashtags": Counter(),
             "tweet_text_most_retweeted": "",
             "user_most_retweeted":"",
-            "retweet_count_most_retweeted":""
+            "retweet_count_most_retweeted":0
         })
         n = 0
         n_hashtags = 0
@@ -222,8 +222,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["nb_hashtags"] += 1
                 n_hashtags += 1
 
-            if stats["retweet_count_most_retweeted"] < row[retweet_count]:
-                stats["retweet_count_most_retweeted"]=row[retweet_count]
+            if stats["retweet_count_most_retweeted"] < int(row[retweet_count]):
+                stats["retweet_count_most_retweeted"]=int(row[retweet_count])
                 stats["tweet_text_most_retweeted"]=row[tweet_text]
                 stats["user_most_retweeted"]=row[user_name_pos]
             
