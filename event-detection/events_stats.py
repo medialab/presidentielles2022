@@ -15,6 +15,12 @@ Compute some aggregated stats about events:
 - media shared in the event as urls
 - media tweeting in the event
 - French MPs tweeting in the event
+- the text of the most retweeted tweet for the event 
+- the user name of the person who wrote this tweet 
+- the id of this tweet
+- the text of the most retweeted tweet considering only the first 10% of the tweets of this event
+- the user name of the person who wrote this tweet 
+- the id of this tweet
 
 """
 
@@ -148,6 +154,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "tweet_text_most_retweeted": "",
             "user_most_retweeted":"",
             "retweet_count_most_retweeted":0,
+            "id_trigger":"",
             "tweet_text_trigger":"",
             "user_trigger":""
     })
@@ -255,9 +262,9 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
             if event_id not in event_stats_ten_percent:
                 stats = event_stats_ten_percent[event_id]
+                stats["ten_percent"]=math.ceil(0.1*events_stats[event_id]["nb_docs"])
             else:
                 stats = event_stats_ten_percent[event_id]
-                stats["ten_percent"]=math.ceil(0.1*events_stats[event_id]["nb_docs"])
             
             if stats["count"] < stats["ten_percent"] :
                 stats["count"]+=1
@@ -269,6 +276,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             elif stats["count"] <= stats["ten_percent"] :
                 events_stats[event_id]["tweet_text_trigger"]=stats["tweet_text_most_retweeted"]
                 events_stats[event_id]["user_trigger"]=stats["user_most_retweeted"]
+                events_stats[event_id]["id_trigger"]=stats["id_most_retweeted"]
+
 
 
 
@@ -277,7 +286,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
                              "top_hashtags", "media_urls", "tweets_by_media",\
                              "start_date", "end_date", "max_docs_date", "MPs", "text_tweet_most_retweeted","user_most_retweeted",\
-                                "tweet_text_trigger","user_trigger"])
+                                "id_most_retweeted","tweet_text_trigger","user_trigger",'id_trigger'])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -304,9 +313,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             "|".join([mp_ids[user_id] for user_id in stats["mps"]]),
                             stats["tweet_text_most_retweeted"],
                             stats["user_most_retweeted"],
+                            stats["id_most_retweeted"],
                             stats["tweet_text_trigger"],
                             stats["user_trigger"],
-
+                            stats["id_trigger"],
 
                         ]
                     )
