@@ -29,7 +29,7 @@ from ural import get_domain_name
 from ural.lru import LRUTrie
 from collections import defaultdict, Counter
 import re
-
+import math
 
 csv.field_size_limit(sys.maxsize)
 TOTAL_TWEETS = 6896842
@@ -131,7 +131,26 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
     with casanova.reader(vocab_file) as reader:
 
         vocab = set(t for t in reader.cells("token"))
-
+    
+    events_stats = defaultdict(
+            lambda: {
+            "nb_words": 0,
+            "nb_docs": 0,
+            "nb_hashtags": 0,
+            "max_tweets_per_day": 1,
+            "nb_tweets_current_day": 0,
+            "tf": defaultdict(int),
+            "media": dict(),
+            "tweets_by_media": set(),
+            "mps": set(),
+            "hashtags": Counter(),
+            "id_most_retweeted":"",
+            "tweet_text_most_retweeted": "",
+            "user_most_retweeted":"",
+            "retweet_count_most_retweeted":0,
+            "tweet_text_trigger":"",
+            "user_trigger":""
+    })
     with open(source_file, 'r') as f:
 
         reader = casanova.reader(f)
@@ -144,25 +163,11 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         user_name_pos = reader.headers.user_screen_name
         retweet_count=reader.headers.retweet_count
         tweet_text=reader.headers.tweet_text
+        tweet_id=reader.headers.id
 
         term_frequency = Counter()
         hashtag_frequency = Counter()
-        events_stats = defaultdict(
-            lambda: {
-            "nb_words": 0,
-            "nb_docs": 0,
-            "nb_hashtags": 0,
-            "max_tweets_per_day": 1,
-            "nb_tweets_current_day": 0,
-            "tf": defaultdict(int),
-            "media": dict(),
-            "tweets_by_media": set(),
-            "mps": set(),
-            "hashtags": Counter(),
-            "tweet_text_most_retweeted": "",
-            "user_most_retweeted":"",
-            "retweet_count_most_retweeted":0
-        })
+        
         n = 0
         n_hashtags = 0
         token_pattern = re.compile(r'[a-z]+')
@@ -226,15 +231,53 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["retweet_count_most_retweeted"]=int(row[retweet_count])
                 stats["tweet_text_most_retweeted"]=row[tweet_text]
                 stats["user_most_retweeted"]=row[user_name_pos]
+                stats["id_most_retweeted"]=row[tweet_id]
+
+    with open(source_file, 'r') as f:
+        event_stats_ten_percent = defaultdict(
+        lambda: {
+        "ten_percent": 0,
+        "count": 0,
+        "tweet_text_most_retweeted": "",
+        "user_most_retweeted":"",
+        "retweet_count_most_retweeted":0,
+        "id_most_retweeted":""
+        })
+
+        reader = casanova.reader(f)
+
+        for row in reader :
+            event_pos = reader.headers.thread_id
+            user_name_pos = reader.headers.user_screen_name
+            retweet_count=reader.headers.retweet_count
+            tweet_text=reader.headers.tweet_text
+            event_id = format_thread_id(row[event_pos])
+
+            if event_id not in event_stats_ten_percent:
+                stats = event_stats_ten_percent[event_id]
+            else:
+                stats = event_stats_ten_percent[event_id]
+                stats["ten_percent"]=math.ceil(0.1*events_stats[event_id]["nb_docs"])
             
-            
+            if stats["count"] < stats["ten_percent"] :
+                stats["count"]+=1
+                if stats["retweet_count_most_retweeted"] < int(row[retweet_count]):
+                    stats["retweet_count_most_retweeted"]=int(row[retweet_count])
+                    stats["tweet_text_most_retweeted"]=row[tweet_text]
+                    stats["user_most_retweeted"]=row[user_name_pos]
+                    stats["id_most_retweeted"]=row[tweet_id]
+            elif stats["count"] <= stats["ten_percent"] :
+                events_stats[event_id]["tweet_text_trigger"]=stats["tweet_text_most_retweeted"]
+                events_stats[event_id]["user_trigger"]=stats["user_most_retweeted"]
+
 
 
         with open(outfile, "w") as of:
             writer = csv.writer(of)
             writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
                              "top_hashtags", "media_urls", "tweets_by_media",\
-                             "start_date", "end_date", "max_docs_date", "MPs", "text_tweet_most_retweeted","user_most_retweeted"])
+                             "start_date", "end_date", "max_docs_date", "MPs", "text_tweet_most_retweeted","user_most_retweeted",\
+                                "tweet_text_trigger","user_trigger"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -260,7 +303,11 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             stats["max_day"],
                             "|".join([mp_ids[user_id] for user_id in stats["mps"]]),
                             stats["tweet_text_most_retweeted"],
-                            stats["user_most_retweeted"]
+                            stats["user_most_retweeted"],
+                            stats["tweet_text_trigger"],
+                            stats["user_trigger"],
+
+
                         ]
                     )
 
