@@ -156,7 +156,11 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "retweet_count_most_retweeted":0,
             "id_trigger":"",
             "tweet_text_trigger":"",
-            "user_trigger":""
+            "user_trigger":"",
+            "nbre_RT":[],
+            "id_first_percentile":0,
+            "tweet_text_first_percentile":"",
+            "user_first_percentile":"",
     })
     with open(source_file, 'r') as f:
 
@@ -239,44 +243,25 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["tweet_text_most_retweeted"]=row[tweet_text]
                 stats["user_most_retweeted"]=row[user_name_pos]
                 stats["id_most_retweeted"]=row[tweet_id]
+            stats["nbre_RT"].append(int(row[retweet_count]))
 
     with open(source_file, 'r') as f:
-        event_stats_ten_percent = defaultdict(
-        lambda: {
-        "ten_percent": 0,
-        "count": 0,
-        "tweet_text_most_retweeted": "",
-        "user_most_retweeted":"",
-        "retweet_count_most_retweeted":0,
-        "id_most_retweeted":""
-        })
-
         reader = casanova.reader(f)
-
+        
         for row in reader :
-            event_pos = reader.headers.thread_id
             user_name_pos = reader.headers.user_screen_name
             retweet_count=reader.headers.retweet_count
             tweet_text=reader.headers.tweet_text
             event_id = format_thread_id(row[event_pos])
-
-            if event_id not in event_stats_ten_percent:
-                stats = event_stats_ten_percent[event_id]
-                stats["ten_percent"]=math.ceil(0.1*events_stats[event_id]["nb_docs"])
-            else:
-                stats = event_stats_ten_percent[event_id]
             
-            if stats["count"] < stats["ten_percent"] :
-                stats["count"]+=1
-                if stats["retweet_count_most_retweeted"] < int(row[retweet_count]):
-                    stats["retweet_count_most_retweeted"]=int(row[retweet_count])
-                    stats["tweet_text_most_retweeted"]=row[tweet_text]
-                    stats["user_most_retweeted"]=row[user_name_pos]
-                    stats["id_most_retweeted"]=row[tweet_id]
-            elif stats["count"] <= stats["ten_percent"] :
-                events_stats[event_id]["tweet_text_trigger"]=stats["tweet_text_most_retweeted"]
-                events_stats[event_id]["user_trigger"]=stats["user_most_retweeted"]
-                events_stats[event_id]["id_trigger"]=stats["id_most_retweeted"]
+            rang =int(90*(events_stats[event_id]["nb_docs"]+1)/100)
+            percentile=sorted(events_stats[event_id]["nbre_RT"])[rang]
+
+            if events_stats[event_id]["id_first_percentile"]==0 and int(row[retweet_count])>= percentile :
+                events_stats[event_id]["tweet_text_first_percentile"]=row[tweet_text]
+                events_stats[event_id]["user_first_percentile"]=row[user_name_pos]
+                events_stats[event_id]["id_first_percentile"]=row[tweet_id]
+
 
 
 
@@ -286,7 +271,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
                              "top_hashtags", "media_urls", "tweets_by_media",\
                              "start_date", "end_date", "max_docs_date", "MPs", "text_tweet_most_retweeted","user_most_retweeted",\
-                                "id_most_retweeted","tweet_text_trigger","user_trigger",'id_trigger'])
+                                "id_most_retweeted",\
+                                    "tweet_text_first_percentile","user_first_percentile","id_first_percentile"])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -314,10 +300,9 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             stats["tweet_text_most_retweeted"],
                             stats["user_most_retweeted"],
                             stats["id_most_retweeted"],
-                            stats["tweet_text_trigger"],
-                            stats["user_trigger"],
-                            stats["id_trigger"],
-
+                            stats["tweet_text_first_percentile"],
+                            stats["user_first_percentile"],
+                            stats["id_first_percentile"]               
                         ]
                     )
 
