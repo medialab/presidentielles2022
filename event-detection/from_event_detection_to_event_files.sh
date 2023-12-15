@@ -6,8 +6,9 @@ INPUT_FILE=$1
 THRESHOLD=$2
 WINDOW_SIZE=$3
 STOPWORDS_FILE="stopwords_media_twitter.csv"
-KEYWORDS="soline|méga-bassine|mégabassine|megabassine|ecoterroris|écoterroris|eco-terroris|éco-terroris"
+#KEYWORDS="soline|méga-bassine|mégabassine|megabassine|ecoterroris|écoterroris|eco-terroris|éco-terroris"
 #KEYWORDS="lola"
+KEYWORDS="refus d'obtempérer|émeutes|cagnotte|l'haÿ-les-roses|lhaylesroses|violences policières|nanterre|zyed|bouna|clichy-sous-bois|lola|naël|nahel"
 BASE_NAME=$(basename ${INPUT_FILE} | sed "s/\..*//")
 
 eval "$(pyenv init -)"
@@ -34,7 +35,7 @@ python events_stats.py ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}_with_text.csv
 
 echo "5. Find thread ids associated to keywords"
 xsv map "lower(text)" lowered_text ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}_with_text.csv | \
-xsv search -s lowered_text $KEYWORDS | \
+xsv search -s lowered_text "$KEYWORDS" | \
 xsv frequency -s thread_id -l 0 \
 > ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_threads.csv
 
