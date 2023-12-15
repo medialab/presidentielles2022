@@ -15,13 +15,8 @@ Compute some aggregated stats about events:
 - media shared in the event as urls
 - media tweeting in the event
 - French MPs tweeting in the event
-- the text of the most retweeted tweet for the event 
-- the user name of the person who wrote this tweet 
-- the id of this tweet
-- the text of the most retweeted tweet considering only the first 10% of the tweets of this event
-- the user name of the person who wrote this tweet 
-- the id of this tweet
-
+- the text, user and id of the most retweeted tweet of the event
+- the text, user and id of the first tweet (chronologically) with a nb of RT higher than the 90th percentile of the event
 """
 
 import os
@@ -137,7 +132,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
     with casanova.reader(vocab_file) as reader:
 
         vocab = set(t for t in reader.cells("token"))
-    
+
     events_stats = defaultdict(
             lambda: {
             "nb_words": 0,
@@ -157,7 +152,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "id_trigger":"",
             "tweet_text_trigger":"",
             "user_trigger":"",
-            "nbre_RT":[],
+            "nb_RT":[],
             "id_first_percentile":0,
             "tweet_text_first_percentile":"",
             "user_first_percentile":"",
@@ -178,7 +173,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
         term_frequency = Counter()
         hashtag_frequency = Counter()
-        
+
         n = 0
         n_hashtags = 0
         token_pattern = re.compile(r'[a-z]+')
@@ -239,40 +234,44 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 n_hashtags += 1
 
             if stats["retweet_count_most_retweeted"] < int(row[retweet_count]):
-                stats["retweet_count_most_retweeted"]=int(row[retweet_count])
-                stats["tweet_text_most_retweeted"]=row[tweet_text]
-                stats["user_most_retweeted"]=row[user_name_pos]
-                stats["id_most_retweeted"]=row[tweet_id]
-            stats["nbre_RT"].append(int(row[retweet_count]))
+                stats["retweet_count_most_retweeted"] = int(row[retweet_count])
+                stats["tweet_text_most_retweeted"] = row[tweet_text]
+                stats["user_most_retweeted"] = row[user_name_pos]
+                stats["id_most_retweeted"] = row[tweet_id]
+
+            stats["nb_RT"].append(int(row[retweet_count]))
+
+    total = len(events_stats)
+    for stats in tqdm(events_stats.values(), total=total):
+            stats["percentile"] = sorted(stats["nb_RT"])[int(math.ceil((stats["nb_docs"] * 90) / 100)) - 1]
+            stats.pop("nb_RT")
 
     with open(source_file, 'r') as f:
         reader = casanova.reader(f)
-        
-        for row in reader :
+
+        for row in tqdm(reader, total=TOTAL_TWEETS):
+
             user_name_pos = reader.headers.user_screen_name
             retweet_count=reader.headers.retweet_count
             tweet_text=reader.headers.tweet_text
             event_id = format_thread_id(row[event_pos])
-            
-            rang =int(90*(events_stats[event_id]["nb_docs"]+1)/100)
-            percentile=sorted(events_stats[event_id]["nbre_RT"])[rang]
 
-            if events_stats[event_id]["id_first_percentile"]==0 and int(row[retweet_count])>= percentile :
-                events_stats[event_id]["tweet_text_first_percentile"]=row[tweet_text]
-                events_stats[event_id]["user_first_percentile"]=row[user_name_pos]
-                events_stats[event_id]["id_first_percentile"]=row[tweet_id]
+            stats = events_stats[event_id]
 
-
-
+            if stats["id_first_percentile"] == 0 and int(row[retweet_count]) >= stats["percentile"] :
+                stats["tweet_text_first_percentile"] = row[tweet_text]
+                stats["user_first_percentile"]= row[user_name_pos]
+                stats["id_first_percentile"] = row[tweet_id]
 
 
         with open(outfile, "w") as of:
             writer = csv.writer(of)
             writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
-                             "top_hashtags", "media_urls", "tweets_by_media",\
-                             "start_date", "end_date", "max_docs_date", "MPs", "text_tweet_most_retweeted","user_most_retweeted",\
-                                "id_most_retweeted",\
-                                    "tweet_text_first_percentile","user_first_percentile","id_first_percentile"])
+                            "top_hashtags", "media_urls", "tweets_by_media",\
+                            "start_date", "end_date", "max_docs_date", "MPs",\
+                            "tweet_most_RTed","user_most_RTed", "id_most_RTed",\
+                            "tweet_percentile","user_percentile","id_percentile"
+                            ])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -302,7 +301,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             stats["id_most_retweeted"],
                             stats["tweet_text_first_percentile"],
                             stats["user_first_percentile"],
-                            stats["id_first_percentile"]               
+                            stats["id_first_percentile"]
                         ]
                     )
 

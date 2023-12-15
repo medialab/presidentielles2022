@@ -41,7 +41,7 @@ xsv frequency -s thread_id -l 0 \
 
 echo "6. Filter events stats on keywords threads"
 xsv join --left value ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_threads.csv thread_id ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_events_stats.csv |\
-xsv select count,thread_id,nb_docs,top_chi_square_words,top_chi_square_hashtags,top_hashtags,media_urls,tweets_by_media,start_date,end_date,max_docs_date,MPs \
+xsv select count,thread_id,nb_docs,top_chi_square_words,top_chi_square_hashtags,top_hashtags,media_urls,tweets_by_media,start_date,end_date,max_docs_date,MPs,tweet_most_RTed,user_most_RTed,id_most_RTed,tweet_percentile,user_percentile,id_percentile \
 > ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_events_stats.csv
 
 echo "7. Filter on 10 tweets by cluster"
