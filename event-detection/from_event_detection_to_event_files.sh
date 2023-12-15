@@ -7,6 +7,7 @@ THRESHOLD=$2
 WINDOW_SIZE=$3
 STOPWORDS_FILE="stopwords_media_twitter.csv"
 KEYWORDS="soline|méga-bassine|mégabassine|megabassine|ecoterroris|écoterroris|eco-terroris|éco-terroris"
+#KEYWORDS="lola"
 BASE_NAME=$(basename ${INPUT_FILE} | sed "s/\..*//")
 
 eval "$(pyenv init -)"
@@ -22,9 +23,10 @@ singerie nn ${BASE_NAME}_vocab.csv $INPUT_FILE \
 --threshold $THRESHOLD \
 > ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}.csv
 
-echo "2. Join with text"
+echo "2. Join with text and add local time"
 xsv join --left id ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}.csv id $INPUT_FILE | \
-xsv select id[1],thread_id,timestamp_utc,user_id,user_screen_name,retweet_count,links,domains,text,tweet_text,page_title,page_description,page_date,selected_url,nearest_neighbor \
+xsv datefmt timestamp_utc --outtz "Europe/Paris" --outfmt "%Y-%m-%d %H:%M:%S" -c "local_time" |\
+xsv select id[1],thread_id,timestamp_utc,local_time,user_id,user_screen_name,retweet_count,links,domains,text,tweet_text,page_title,page_description,page_date,selected_url,nearest_neighbor \
 > ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}_with_text.csv
 
 echo "3. Compute events stats"
@@ -47,4 +49,5 @@ xsv filter "gte(count, 10)" ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_ev
 
 echo "8. Write one file per thread for threads greater than 10"
 xsv join --left thread_id ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_keywords_events_stats_gt10.csv thread_id ${BASE_NAME}_nn_${THRESHOLD}_${WINDOW_SIZE}_with_text.csv |\
+xsv select local_time,user_screen_name,retweet_count,text,tweet_text,page_title,page_description,page_date,selected_url,id,nearest_neighbor,user_id,timestamp_utc,thread_id |\
 xsv partition thread_id ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_files
