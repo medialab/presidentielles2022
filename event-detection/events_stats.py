@@ -275,7 +275,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["user_first_percentile"]= row[user_name_pos]
                 stats["id_first_percentile"] = row[tweet_id]
 
-            if stats["quoted_frequency"][row[tweet_id]] and stats["quoted_frequency"][row[tweet_id]] >= stats['percentile_quotes'] :
+            if stats["id_quote_percentile"] == 0 and stats["quoted_frequency"][row[tweet_id]] >= stats['percentile_quotes'] :
                 stats["tweet_text_quote_percentile"] = row[tweet_text]
                 stats["user_quote_percentile"]= row[user_name_pos]
                 stats["id_quote_percentile"] = row[tweet_id]
