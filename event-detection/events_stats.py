@@ -156,6 +156,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "id_first_percentile":0,
             "tweet_text_first_percentile":"",
             "user_first_percentile":"",
+            "id_quote_percentile":0,
+            "tweet_text_quote_percentile":"",
+            "user_quote_percentile":"",
+            "quoted_frequency":Counter(), 
     })
     with open(source_file, 'r') as f:
 
@@ -170,6 +174,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         retweet_count=reader.headers.retweet_count
         tweet_text=reader.headers.tweet_text
         tweet_id=reader.headers.id
+        quoted_id=reader.headers.quoted_id
 
         term_frequency = Counter()
         hashtag_frequency = Counter()
@@ -241,10 +246,17 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
             stats["nb_RT"].append(int(row[retweet_count]))
 
+            stats["quoted_frequency"][row[tweet_id]]=0
+            stats["quoted_frequency"][row[quoted_id]]+=1
+            
+
+
     total = len(events_stats)
     for stats in tqdm(events_stats.values(), total=total):
             stats["percentile"] = sorted(stats["nb_RT"])[int(math.ceil((stats["nb_docs"] * 90) / 100)) - 1]
             stats.pop("nb_RT")
+
+            stats['percentile_quotes'] = sorted(stats["quoted_frequency"].values())[int(math.ceil((stats["nb_docs"] * 90) / 100)) - 1]
 
     with open(source_file, 'r') as f:
         reader = casanova.reader(f)
@@ -263,6 +275,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["user_first_percentile"]= row[user_name_pos]
                 stats["id_first_percentile"] = row[tweet_id]
 
+            if stats["quoted_frequency"][row[tweet_id]] and stats["quoted_frequency"][row[tweet_id]] >= stats['percentile_quotes'] :
+                stats["tweet_text_quote_percentile"] = row[tweet_text]
+                stats["user_quote_percentile"]= row[user_name_pos]
+                stats["id_quote_percentile"] = row[tweet_id]
 
         with open(outfile, "w") as of:
             writer = csv.writer(of)
@@ -270,7 +286,8 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             "top_hashtags", "media_urls", "tweets_by_media",\
                             "start_date", "end_date", "max_docs_date", "MPs",\
                             "tweet_most_RTed","user_most_RTed", "id_most_RTed",\
-                            "tweet_percentile","user_percentile","id_percentile"
+                            "tweet_RT_percentile","user_RT_percentile","id_RT_percentile",\
+                            "tweet_quote_percentile","user_quote_percentile","id_quote_percentile",
                             ])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
@@ -301,7 +318,10 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             stats["id_most_retweeted"],
                             stats["tweet_text_first_percentile"],
                             stats["user_first_percentile"],
-                            stats["id_first_percentile"]
+                            stats["id_first_percentile"],
+                            stats["tweet_text_quote_percentile"],
+                            stats["user_quote_percentile"],
+                            stats["id_quote_percentile"]
                         ]
                     )
 
