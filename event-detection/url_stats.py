@@ -110,7 +110,9 @@ with casanova.reader(infile_europresse) as reader:
         media_pos = europresse_headers.media
 
     for row in reader :
-        if row[url_pos] :
+        if row[resolved_url_pos] :
+            europresse_url_trie.set(row[resolved_url_pos], row[id_pos])
+        if row[url_pos]:
             if is_url(row[url_pos]):
                 europresse_url_trie.set(row[url_pos], row[id_pos])
             else:
