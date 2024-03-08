@@ -17,6 +17,7 @@ from datetime import datetime
 from tqdm import tqdm
 
 import casanova
+from casanova.exceptions import UnknownNamedColumnError
 import string
 
 import csv
@@ -39,6 +40,54 @@ def clean(s):
     table = str.maketrans(dict.fromkeys(string.punctuation + more_punctuation))
     s = s.translate(table)
     return s.lower().strip()
+
+def get_url_stats(url, row, url_scraped=True):
+    url = normalize_url(url)
+    url_stats = url_dict.get(url)
+
+    if url_stats:
+        url_stats["nb_tweets"] += 1
+        if url_scraped:
+            url_stats["thread_ids"].add(row[thread_pos])
+    else:
+        matched_on = None
+        europresse_title = None
+        try:
+            match = europresse_url_trie.match(url)
+        except AttributeError:
+            match = None
+
+        if match:
+            matched_on = "europresse_url"
+        elif url_scraped:
+            clean_title = clean(row[title_pos])
+            if clean_title:
+                matched_trie = europresse_title_dict.get(clean_title)
+                if matched_trie:
+                    match = matched_trie.match(url)
+                    matched_on = "europresse_title_exact"
+                    europresse_title = row[title_pos]
+                else:
+                    for title in titles:
+                        if clean_title in title:
+                            matched_trie = europresse_title_dict.get(title)
+                            if matched_trie:
+                                match = matched_trie.match(url)
+                                europresse_title = title
+                                if match:
+                                    matched_on = "europresse_title_fuzzy"
+                                    break
+
+        url_dict[url] = {
+            "first_shared": int(row[date_pos]),
+            "thread_ids": set([row[thread_pos]]) if url_scraped else None,
+            "match": match,
+            "matched_on": matched_on,
+            "nb_tweets": 1,
+            "page_title": row[title_pos] if url_scraped else None,
+            "europresse_title": europresse_title
+        }
+
 
 with casanova.reader(infile_media_websites) as reader:
     if reader.headers:
@@ -73,57 +122,31 @@ with casanova.reader(infile_europresse) as reader:
 
 titles = list(europresse_title_dict.keys())
 
-count = casanova.count(infile_tweets)
+count = casanova.count(infile_tweets, strip_null_bytes_on_read=True)
 
-with casanova.reader(infile_tweets) as reader:
+with casanova.reader(infile_tweets, strip_null_bytes_on_read=True) as reader:
     if reader.headers:
-        url_pos = reader.headers.selected_url
-        thread_pos = reader.headers.thread_id
-        date_pos = reader.headers.timestamp_utc
-        title_pos = reader.headers.page_title
-        lead_pos = reader.headers.page_description
+        try:
+            url_pos = reader.headers.selected_url
+            thread_pos = reader.headers.thread_id
+            date_pos = reader.headers.timestamp_utc
+            title_pos = reader.headers.page_title
+            lead_pos = reader.headers.page_description
+
+            url_scraped = True
+        except UnknownNamedColumnError:
+            url_scraped = False
+            url_pos = reader.headers.links
+            date_pos = reader.headers.timestamp_utc
 
     for row in tqdm(reader, total=count, desc="Read tweets"):
         if row[url_pos]:
-            url = normalize_url(row[url_pos])
-            url_stats = url_dict.get(url)
-            if url_stats:
-                url_stats["nb_tweets"] += 1
-                url_stats["thread_ids"].add(row[thread_pos])
+            if url_scraped:
+                get_url_stats(row[url_pos], row, url_scraped)
             else:
-                europresse_title = None
-                match = europresse_url_trie.match(url)
-                matched_on = "europresse_url"
+                for url in row[url_pos].split("|"):
+                    get_url_stats(url, row, url_scraped)
 
-                if not match:
-                    matched_on = None
-                    clean_title = clean(row[title_pos])
-                    if clean_title:
-                        matched_trie = europresse_title_dict.get(clean_title)
-                        if matched_trie:
-                            match = matched_trie.match(url)
-                            matched_on = "europresse_title_exact"
-                            europresse_title = row[title_pos]
-                        else:
-                            for title in titles:
-                                if clean_title in title:
-                                    matched_trie = europresse_title_dict.get(title)
-                                    if matched_trie:
-                                        match = matched_trie.match(url)
-                                        europresse_title = title
-                                        if match:
-                                            matched_on = "europresse_title_fuzzy"
-                                            break
-
-                url_dict[url] = {
-                    "first_shared": int(row[date_pos]),
-                    "thread_ids": set([row[thread_pos]]),
-                    "match": match,
-                    "matched_on": matched_on,
-                    "nb_tweets": 1,
-                    "page_title": row[title_pos],
-                    "europresse_title": europresse_title
-                }
 
 
 writer = csv.DictWriter(sys.stdout, fieldnames=columns)
@@ -138,9 +161,9 @@ for url, stats in tqdm(url_dict.items(), desc="Write urls"):
         "europresse_id": stats["match"],
         "matched_on": stats["matched_on"],
         "first_shared": datetime.fromtimestamp(stats["first_shared"]).isoformat(),
-        "thread_ids": "|".join(stats["thread_ids"]),
+        "thread_ids": "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
         "nb_tweets": stats["nb_tweets"],
-        "nb_threads": len(stats["thread_ids"]),
+        "nb_threads": len(stats["thread_ids"]) if stats["thread_ids"] else "",
         "page_title": stats["page_title"],
         "europresse_title": stats["europresse_title"]
     })
