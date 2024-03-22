@@ -23,7 +23,10 @@ import string
 import csv
 import sys
 
-columns = ["url", "domain_name", "probably_homepage", "europresse_id", "matched_on", "first_shared", "thread_ids", "nb_tweets", "nb_threads", "page_title", "europresse_title"]
+columns = ["url", "domain_name", "probably_homepage", "europresse_id", "matched_on",
+           "first_shared", "thread_ids", "nb_tweets", "nb_retweets", "nb_threads",
+           "page_title", "europresse_title",
+           ]
 more_punctuation = "«»’"
 
 infile_tweets = sys.argv[1]
@@ -42,11 +45,15 @@ def clean(s):
     return s.lower().strip()
 
 def get_url_stats(url, row, url_scraped=True):
-    url = normalize_url(url)
+    try:
+        url = normalize_url(url)
+    except ValueError:
+        return
     url_stats = url_dict.get(url)
 
     if url_stats:
         url_stats["nb_tweets"] += 1
+        url_stats["nb_retweets"] += int(row[retweet_pos])
         if url_scraped:
             url_stats["thread_ids"].add(row[thread_pos])
     else:
@@ -84,6 +91,7 @@ def get_url_stats(url, row, url_scraped=True):
             "match": match,
             "matched_on": matched_on,
             "nb_tweets": 1,
+            "nb_retweets": int(row[retweet_pos]),
             "page_title": row[title_pos] if url_scraped else None,
             "europresse_title": europresse_title
         }
@@ -129,9 +137,10 @@ count = casanova.count(infile_tweets, strip_null_bytes_on_read=True)
 with casanova.reader(infile_tweets, strip_null_bytes_on_read=True) as reader:
     if reader.headers:
         try:
+            retweet_pos = reader.headers.retweet_count
+            date_pos = reader.headers.timestamp_utc
             url_pos = reader.headers.selected_url
             thread_pos = reader.headers.thread_id
-            date_pos = reader.headers.timestamp_utc
             title_pos = reader.headers.page_title
             lead_pos = reader.headers.page_description
 
@@ -139,7 +148,6 @@ with casanova.reader(infile_tweets, strip_null_bytes_on_read=True) as reader:
         except UnknownNamedColumnError:
             url_scraped = False
             url_pos = reader.headers.links
-            date_pos = reader.headers.timestamp_utc
 
     for row in tqdm(reader, total=count, desc="Read tweets"):
         if row[url_pos]:
@@ -165,6 +173,7 @@ for url, stats in tqdm(url_dict.items(), desc="Write urls"):
         "first_shared": datetime.fromtimestamp(stats["first_shared"]).isoformat(),
         "thread_ids": "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
         "nb_tweets": stats["nb_tweets"],
+        "nb_retweets": stats["nb_retweets"],
         "nb_threads": len(stats["thread_ids"]) if stats["thread_ids"] else "",
         "page_title": stats["page_title"],
         "europresse_title": stats["europresse_title"]
