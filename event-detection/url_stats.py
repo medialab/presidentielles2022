@@ -11,6 +11,7 @@ Info about urls in the corpus
 """
 import sys
 import string
+import argparse
 import casanova
 from tqdm import tqdm
 from datetime import datetime
@@ -19,21 +20,17 @@ from ural.lru import NormalizedLRUTrie
 from casanova.exceptions import UnknownNamedColumnError
 from ural import is_url, get_domain_name, is_homepage, normalize_url
 
-
-
-
-
+parser = argparse.ArgumentParser(description="Match urls from tweets with urls from europresse")
+parser.add_argument("tweets", type=str, help="Path to file containing tweets")
+parser.add_argument("europresse", type=str, help="Path to file containing europresse articles")
+parser.add_argument("media_homepages", type=str, help="Path to file containing homepages of media")
+args = parser.parse_args()
 
 columns = ["url", "domain_name", "probably_homepage", "europresse_id", "matched_on",
            "first_shared", "thread_ids", "nb_tweets", "nb_retweets", "nb_threads",
            "page_title", "europresse_title",
            ]
 more_punctuation = "«»’"
-
-infile_tweets = sys.argv[1]
-infile_europresse = sys.argv[2]
-infile_media_websites = sys.argv[3]
-
 
 url_dict = {}
 europresse_url_trie = NormalizedLRUTrie()
@@ -106,7 +103,7 @@ def get_url_stats(url, row, url_scraped=True):
         }
 
 
-with casanova.reader(infile_media_websites) as reader:
+with casanova.reader(args.media_homepages) as reader:
     if reader.headers:
         prefix_pos = reader.headers.prefixes
         media_pos = reader.headers.media
@@ -117,7 +114,7 @@ with casanova.reader(infile_media_websites) as reader:
                 media_homepages[row[media_pos]] = prefix
                 break
 
-with casanova.reader(infile_europresse) as reader:
+with casanova.reader(args.europresse) as reader:
     if reader.headers:
         europresse_headers = reader.headers
         url_pos = europresse_headers.url
@@ -145,8 +142,8 @@ with casanova.reader(infile_europresse) as reader:
 
 titles = list(europresse_title_dict.keys())
 
-count = casanova.count(infile_tweets, strip_null_bytes_on_read=True)
-with casanova.reader(infile_tweets, strip_null_bytes_on_read=True) as reader:
+count = casanova.count(args.tweets, strip_null_bytes_on_read=True)
+with casanova.reader(args.tweets, strip_null_bytes_on_read=True) as reader:
     if reader.headers:
         try:
             retweet_pos = reader.headers.retweet_count
@@ -170,7 +167,7 @@ with casanova.reader(infile_tweets, strip_null_bytes_on_read=True) as reader:
                     get_url_stats(url, row, url_scraped)
 
 
-with casanova.enricher(infile_europresse, sys.stdout, add=columns) as enricher:
+with casanova.enricher(args.europresse, sys.stdout, add=columns) as enricher:
     if enricher.headers:
         europresse_headers = enricher.headers
         url_pos = europresse_headers.url
