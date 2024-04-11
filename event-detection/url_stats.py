@@ -19,8 +19,6 @@ from tqdm import tqdm
 import casanova
 from casanova.exceptions import UnknownNamedColumnError
 import string
-
-import csv
 import sys
 
 columns = ["url", "domain_name", "probably_homepage", "europresse_id", "matched_on",
@@ -43,6 +41,14 @@ def clean(s):
     table = str.maketrans(dict.fromkeys(string.punctuation + more_punctuation))
     s = s.translate(table)
     return s.lower().strip()
+
+def find_in_dict(url, url_dict):
+
+    if is_url(url):
+        normalized = normalize_url(url)
+        if normalized in url_dict:
+            return normalized
+    return ""
 
 def get_url_stats(url, row, url_scraped=True):
     try:
@@ -116,24 +122,27 @@ with casanova.reader(infile_europresse) as reader:
         id_pos = europresse_headers.id
         title_pos = europresse_headers.title
         media_pos = europresse_headers.media
+        manual_url_pos = None
+        if "manually_found_url" in europresse_headers:
+            manual_url_pos = europresse_headers.manually_found_url
 
     for row in reader :
+        if manual_url_pos is not None and row[manual_url_pos]:
+            europresse_url_trie.set(row[manual_url_pos], row[id_pos])
+
         if row[resolved_url_pos] :
             europresse_url_trie.set(row[resolved_url_pos], row[id_pos])
-        if row[url_pos]:
-            if is_url(row[url_pos]):
-                europresse_url_trie.set(row[url_pos], row[id_pos])
-            else:
-                europresse_url_trie.set("https://www.lemonde.fr" + row[url_pos], row[id_pos])
 
-        elif row[media_pos] in media_homepages:
+        if row[url_pos] and is_url(row[url_pos]):
+            europresse_url_trie.set(row[url_pos], row[id_pos])
+
+        if row[media_pos] in media_homepages:
             media_homepage = media_homepages[row[media_pos]]
             europresse_title_dict[clean(row[title_pos])].set(media_homepage, row[id_pos])
 
 titles = list(europresse_title_dict.keys())
 
 count = casanova.count(infile_tweets, strip_null_bytes_on_read=True)
-
 with casanova.reader(infile_tweets, strip_null_bytes_on_read=True) as reader:
     if reader.headers:
         try:
@@ -158,23 +167,62 @@ with casanova.reader(infile_tweets, strip_null_bytes_on_read=True) as reader:
                     get_url_stats(url, row, url_scraped)
 
 
+with casanova.enricher(infile_europresse, sys.stdout, add=columns) as enricher:
+    if enricher.headers:
+        europresse_headers = enricher.headers
+        url_pos = europresse_headers.url
+        resolved_url_pos = europresse_headers.resolved_url
+        id_pos = europresse_headers.id
+        title_pos = europresse_headers.title
+        media_pos = europresse_headers.media
+        manual_url_pos = None
+        if "manually_found_url" in europresse_headers:
+            manual_url_pos = europresse_headers.manually_found_url
+    for row in enricher:
 
-writer = csv.DictWriter(sys.stdout, fieldnames=columns)
-writer.writeheader()
+        url = ""
 
-for url, stats in tqdm(url_dict.items(), desc="Write urls"):
+        if manual_url_pos is not None and row[manual_url_pos]:
+            url = find_in_dict(row[manual_url_pos], url_dict)
 
-    writer.writerow({
-        "url": url,
-        "domain_name": get_domain_name(url),
-        "probably_homepage": is_homepage(url),
-        "europresse_id": stats["match"],
-        "matched_on": stats["matched_on"],
-        "first_shared": datetime.fromtimestamp(stats["first_shared"]).isoformat(),
-        "thread_ids": "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
-        "nb_tweets": stats["nb_tweets"],
-        "nb_retweets": stats["nb_retweets"],
-        "nb_threads": len(stats["thread_ids"]) if stats["thread_ids"] else "",
-        "page_title": stats["page_title"],
-        "europresse_title": stats["europresse_title"]
-    })
+        if not url and row[resolved_url_pos]:
+            url = find_in_dict(row[resolved_url_pos], url_dict)
+
+        if not url and row[url_pos]:
+            url = find_in_dict(row[url_pos], url_dict)
+
+        if url:
+            stats = url_dict[url]
+            enricher.writerow(row, [
+                url,
+                get_domain_name(url),
+                is_homepage(url),
+                stats["match"],
+                stats["matched_on"],
+                datetime.fromtimestamp(stats["first_shared"]).isoformat(),
+                "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
+                stats["nb_tweets"],
+                stats["nb_retweets"],
+                len(stats["thread_ids"]) if stats["thread_ids"] else "",
+                stats["page_title"],
+                stats["europresse_title"]
+            ])
+            continue
+        enricher.writerow(row, [""]*len(columns))
+
+# for url, stats in tqdm(url_dict.items(), desc="Write urls"):
+
+#     writer.writerow({
+#         "url": url,
+#         "domain_name": get_domain_name(url),
+#         "probably_homepage": is_homepage(url),
+#         "europresse_id": stats["match"],
+#         "matched_on": stats["matched_on"],
+#         "first_shared": datetime.fromtimestamp(stats["first_shared"]).isoformat(),
+#         "thread_ids": "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
+#         "nb_tweets": stats["nb_tweets"],
+#         "nb_retweets": stats["nb_retweets"],
+#         "nb_threads": len(stats["thread_ids"]) if stats["thread_ids"] else "",
+#         "page_title": stats["page_title"],
+#         "europresse_title": stats["europresse_title"]
+#     })
