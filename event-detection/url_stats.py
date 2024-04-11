@@ -176,6 +176,7 @@ with casanova.reader(args.tweets, strip_null_bytes_on_read=True) as reader:
 
 if args.write_twitter:
     writer = csv.DictWriter(sys.stdout, fieldnames=columns)
+    writer.writeheader()
     for url, stats in tqdm(url_dict.items(), desc="Write urls"):
 
         writer.writerow({
