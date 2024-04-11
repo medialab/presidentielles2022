@@ -9,17 +9,20 @@ Info about urls in the corpus
 # nb_tweets (nb of tweets sharing the url)
 # nb_SE (nb of events sharing the url)
 """
-
-from ural.lru import NormalizedLRUTrie
-from ural import is_url, get_domain_name, is_homepage, normalize_url
-from collections import defaultdict
-from datetime import datetime
-from tqdm import tqdm
-
-import casanova
-from casanova.exceptions import UnknownNamedColumnError
-import string
 import sys
+import string
+import casanova
+from tqdm import tqdm
+from datetime import datetime
+from collections import defaultdict
+from ural.lru import NormalizedLRUTrie
+from casanova.exceptions import UnknownNamedColumnError
+from ural import is_url, get_domain_name, is_homepage, normalize_url
+
+
+
+
+
 
 columns = ["url", "domain_name", "probably_homepage", "europresse_id", "matched_on",
            "first_shared", "thread_ids", "nb_tweets", "nb_retweets", "nb_threads",
