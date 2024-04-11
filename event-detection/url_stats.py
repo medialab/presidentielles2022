@@ -27,6 +27,7 @@ parser.add_argument("europresse", type=str, help="Path to file containing europr
 parser.add_argument("media_homepages", type=str, help="Path to file containing homepages of media")
 parser.add_argument("--write-twitter", "-t", action="store_true", help="Write stats for all urls found on \
                     Twitter instead of only europresse")
+parser.add_argument("--count", "-c", type=int, help="Number of lines in tweets file.")
 args = parser.parse_args()
 
 columns = ["url", "domain_name", "probably_homepage", "europresse_id", "matched_on",
@@ -145,7 +146,11 @@ with casanova.reader(args.europresse) as reader:
 
 titles = list(europresse_title_dict.keys())
 
-count = casanova.count(args.tweets, strip_null_bytes_on_read=True)
+if args.count:
+    count = args.count
+else:
+    count = casanova.count(args.tweets, strip_null_bytes_on_read=True)
+
 with casanova.reader(args.tweets, strip_null_bytes_on_read=True) as reader:
     if reader.headers:
         try:
