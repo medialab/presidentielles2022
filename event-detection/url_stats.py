@@ -9,6 +9,7 @@ Info about urls in the corpus
 # nb_tweets (nb of tweets sharing the url)
 # nb_SE (nb of events sharing the url)
 """
+import csv
 import sys
 import string
 import argparse
@@ -24,6 +25,8 @@ parser = argparse.ArgumentParser(description="Match urls from tweets with urls f
 parser.add_argument("tweets", type=str, help="Path to file containing tweets")
 parser.add_argument("europresse", type=str, help="Path to file containing europresse articles")
 parser.add_argument("media_homepages", type=str, help="Path to file containing homepages of media")
+parser.add_argument("--write-twitter", "-t", action="store_true", help="Write stats for all urls found on \
+                    Twitter instead of only europresse")
 args = parser.parse_args()
 
 columns = ["url", "domain_name", "probably_homepage", "europresse_id", "matched_on",
@@ -166,63 +169,65 @@ with casanova.reader(args.tweets, strip_null_bytes_on_read=True) as reader:
                 for url in row[url_pos].split("|"):
                     get_url_stats(url, row, url_scraped)
 
+if args.write_twitter:
+    writer = csv.DictWriter(sys.stdout, fieldnames=columns)
+    for url, stats in tqdm(url_dict.items(), desc="Write urls"):
 
-with casanova.enricher(args.europresse, sys.stdout, add=columns) as enricher:
-    if enricher.headers:
-        europresse_headers = enricher.headers
-        url_pos = europresse_headers.url
-        resolved_url_pos = europresse_headers.resolved_url
-        id_pos = europresse_headers.id
-        title_pos = europresse_headers.title
-        media_pos = europresse_headers.media
-        manual_url_pos = None
-        if "manually_found_url" in europresse_headers:
-            manual_url_pos = europresse_headers.manually_found_url
-    for row in enricher:
+        writer.writerow({
+            "url": url,
+            "domain_name": get_domain_name(url),
+            "probably_homepage": is_homepage(url),
+            "europresse_id": stats["match"],
+            "matched_on": stats["matched_on"],
+            "first_shared": datetime.fromtimestamp(stats["first_shared"]).isoformat(),
+            "thread_ids": "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
+            "nb_tweets": stats["nb_tweets"],
+            "nb_retweets": stats["nb_retweets"],
+            "nb_threads": len(stats["thread_ids"]) if stats["thread_ids"] else "",
+            "page_title": stats["page_title"],
+            "europresse_title": stats["europresse_title"]
+        })
 
-        url = ""
+else:
+    with casanova.enricher(args.europresse, sys.stdout, add=columns) as enricher:
+        if enricher.headers:
+            europresse_headers = enricher.headers
+            url_pos = europresse_headers.url
+            resolved_url_pos = europresse_headers.resolved_url
+            id_pos = europresse_headers.id
+            title_pos = europresse_headers.title
+            media_pos = europresse_headers.media
+            manual_url_pos = None
+            if "manually_found_url" in europresse_headers:
+                manual_url_pos = europresse_headers.manually_found_url
+        for row in enricher:
 
-        if manual_url_pos is not None and row[manual_url_pos]:
-            url = find_in_dict(row[manual_url_pos], url_dict)
+            url = ""
 
-        if not url and row[resolved_url_pos]:
-            url = find_in_dict(row[resolved_url_pos], url_dict)
+            if manual_url_pos is not None and row[manual_url_pos]:
+                url = find_in_dict(row[manual_url_pos], url_dict)
 
-        if not url and row[url_pos]:
-            url = find_in_dict(row[url_pos], url_dict)
+            if not url and row[resolved_url_pos]:
+                url = find_in_dict(row[resolved_url_pos], url_dict)
 
-        if url:
-            stats = url_dict[url]
-            enricher.writerow(row, [
-                url,
-                get_domain_name(url),
-                is_homepage(url),
-                stats["match"],
-                stats["matched_on"],
-                datetime.fromtimestamp(stats["first_shared"]).isoformat(),
-                "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
-                stats["nb_tweets"],
-                stats["nb_retweets"],
-                len(stats["thread_ids"]) if stats["thread_ids"] else "",
-                stats["page_title"],
-                stats["europresse_title"]
-            ])
-            continue
-        enricher.writerow(row, [""]*len(columns))
+            if not url and row[url_pos]:
+                url = find_in_dict(row[url_pos], url_dict)
 
-# for url, stats in tqdm(url_dict.items(), desc="Write urls"):
-
-#     writer.writerow({
-#         "url": url,
-#         "domain_name": get_domain_name(url),
-#         "probably_homepage": is_homepage(url),
-#         "europresse_id": stats["match"],
-#         "matched_on": stats["matched_on"],
-#         "first_shared": datetime.fromtimestamp(stats["first_shared"]).isoformat(),
-#         "thread_ids": "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
-#         "nb_tweets": stats["nb_tweets"],
-#         "nb_retweets": stats["nb_retweets"],
-#         "nb_threads": len(stats["thread_ids"]) if stats["thread_ids"] else "",
-#         "page_title": stats["page_title"],
-#         "europresse_title": stats["europresse_title"]
-#     })
+            if url:
+                stats = url_dict[url]
+                enricher.writerow(row, [
+                    url,
+                    get_domain_name(url),
+                    is_homepage(url),
+                    stats["match"],
+                    stats["matched_on"],
+                    datetime.fromtimestamp(stats["first_shared"]).isoformat(),
+                    "|".join(stats["thread_ids"]) if stats["thread_ids"] else "",
+                    stats["nb_tweets"],
+                    stats["nb_retweets"],
+                    len(stats["thread_ids"]) if stats["thread_ids"] else "",
+                    stats["page_title"],
+                    stats["europresse_title"]
+                ])
+                continue
+            enricher.writerow(row, [""]*len(columns))
