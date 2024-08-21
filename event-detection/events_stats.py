@@ -146,16 +146,19 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "mps": set(),
             "hashtags": Counter(),
             "id_most_retweeted":"",
-            "tweet_text_most_retweeted": "",
-            "user_most_retweeted":"",
-            "retweet_count_most_retweeted":0,
+            # "tweet_text_most_retweeted": "",
+            # "user_most_retweeted":"",
+            # "retweet_count_most_retweeted":0,
             "id_trigger":"",
             "tweet_text_trigger":"",
             "user_trigger":"",
             "nb_RT":[],
-            "id_first_percentile":0,
-            "tweet_text_first_percentile":"",
-            "user_first_percentile":"",
+            "id_80_percentile": 0,
+            "id_90_percentile": 0,
+            "tweet_text_80_percentile": "",
+            "tweet_text_90_percentile": "",
+            "user_80_percentile": "",
+            "user_90_percentile": "",
     })
     with open(source_file, 'r') as f:
 
@@ -233,17 +236,19 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 stats["nb_hashtags"] += 1
                 n_hashtags += 1
 
-            if stats["retweet_count_most_retweeted"] < int(row[retweet_count]):
-                stats["retweet_count_most_retweeted"] = int(row[retweet_count])
-                stats["tweet_text_most_retweeted"] = row[tweet_text]
-                stats["user_most_retweeted"] = row[user_name_pos]
-                stats["id_most_retweeted"] = row[tweet_id]
+            # if stats["retweet_count_most_retweeted"] < int(row[retweet_count]):
+            #     stats["retweet_count_most_retweeted"] = int(row[retweet_count])
+            #     stats["tweet_text_most_retweeted"] = row[tweet_text]
+            #     stats["user_most_retweeted"] = row[user_name_pos]
+            #     stats["id_most_retweeted"] = row[tweet_id]
 
             stats["nb_RT"].append(int(row[retweet_count]))
 
     total = len(events_stats)
     for stats in tqdm(events_stats.values(), total=total):
-            stats["percentile"] = sorted(stats["nb_RT"])[int(math.ceil((stats["nb_docs"] * 90) / 100)) - 1]
+            sorted_nb_RT = sorted(stats["nb_RT"])
+            stats["80_percentile"] = sorted_nb_RT[int(math.ceil((stats["nb_docs"] * 80) / 100)) - 1]
+            stats["90_percentile"] = sorted_nb_RT[int(math.ceil((stats["nb_docs"] * 90) / 100)) - 1]
             stats.pop("nb_RT")
 
     with open(source_file, 'r') as f:
@@ -258,10 +263,17 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
             stats = events_stats[event_id]
 
-            if stats["id_first_percentile"] == 0 and int(row[retweet_count]) >= stats["percentile"] :
-                stats["tweet_text_first_percentile"] = row[tweet_text]
-                stats["user_first_percentile"]= row[user_name_pos]
-                stats["id_first_percentile"] = row[tweet_id]
+            if stats["nb_docs"] >= min_nb_docs:
+
+                if stats["id_80_percentile"] == 0 and int(row[retweet_count]) >= stats["80_percentile"] :
+                    stats["tweet_text_80_percentile"] = row[tweet_text]
+                    stats["user_80_percentile"]= row[user_name_pos]
+                    stats["id_80_percentile"] = int(row[tweet_id])
+
+                if stats["id_90_percentile"] == 0 and int(row[retweet_count]) >= stats["90_percentile"] :
+                    stats["tweet_text_90_percentile"] = row[tweet_text]
+                    stats["user_90_percentile"]= row[user_name_pos]
+                    stats["id_90_percentile"] = int(row[tweet_id])
 
 
         with open(outfile, "w") as of:
@@ -269,8 +281,9 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
                             "top_hashtags", "media_urls", "tweets_by_media",\
                             "start_date", "end_date", "max_docs_date", "MPs",\
-                            "tweet_most_RTed","user_most_RTed", "id_most_RTed",\
-                            "tweet_percentile","user_percentile","id_percentile"
+                            # "tweet_most_RTed","user_most_RTed", "id_most_RTed",\
+                            "tweet_80_percentile","user_80_percentile","id_80_percentile",
+                            "tweet_90_percentile","user_90_percentile","id_90_percentile",
                             ])
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
@@ -296,12 +309,15 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             datetime.fromtimestamp(stats["end_date"], tz=tz).date(),
                             stats["max_day"],
                             "|".join([mp_ids[user_id] for user_id in stats["mps"]]),
-                            stats["tweet_text_most_retweeted"],
-                            stats["user_most_retweeted"],
-                            stats["id_most_retweeted"],
-                            stats["tweet_text_first_percentile"],
-                            stats["user_first_percentile"],
-                            stats["id_first_percentile"]
+                            # stats["tweet_text_most_retweeted"],
+                            # stats["user_most_retweeted"],
+                            # stats["id_most_retweeted"],
+                            stats["tweet_text_80_percentile"],
+                            stats["user_80_percentile"],
+                            stats["id_80_percentile"],
+                            stats["tweet_text_90_percentile"],
+                            stats["user_90_percentile"],
+                            stats["id_90_percentile"]
                         ]
                     )
 
