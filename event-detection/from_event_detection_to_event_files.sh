@@ -9,7 +9,9 @@ STOPWORDS_FILE="stopwords_media_twitter.csv"
 #KEYWORDS="soline|méga-bassine|mégabassine|megabassine|ecoterroris|écoterroris|eco-terroris|éco-terroris"
 #KEYWORDS="lola"
 #KEYWORDS="refus d'obtempérer|émeutes|cagnotte|l'haÿ-les-roses|lhaylesroses|violences policières|nanterre|zyed|bouna|clichy-sous-bois|lola|naël|nahel"
-KEYWORDS="jeune conducteur|affrontements|refus d'obtempérer|émeutes|émeutiers|cagnotte|l'haÿ-les-roses|lhaylesroses|violences|nanterre|clichy-sous-bois|naël|nahel"
+#KEYWORDS="jeune conducteur|affrontements|refus d'obtempérer|émeutes|émeutiers|cagnotte|l'haÿ-les-roses|lhaylesroses|violences|nanterre|clichy-sous-bois|naël|nahel"
+#KEYWORDS="annecy|abdalmasih|assaillant|syrien|couteau|enfants|attaque"
+KEYWORDS="grand-mère|petite fille|bordeaux|agression|violence|tentative d'enlèvement|braihima"
 
 SAFE_KEYWORDS=$(echo $KEYWORDS | sed -r "s/^(.{30}).*$/\1/" | sed -r "s/[^a-z]/_/gi")
 
@@ -45,7 +47,7 @@ xsv frequency -s thread_id -l 0 \
 
 echo "6. Filter events stats on keywords threads"
 xsv join --left value ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_${SAFE_KEYWORDS}_threads.csv thread_id ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_events_stats.csv |\
-xsv select count,thread_id,nb_docs,top_chi_square_words,top_chi_square_hashtags,top_hashtags,id_80_percentile,tweet_80_percentile,media_urls,tweets_by_media,start_date,end_date,max_docs_date,MPs \
+xsv select count,thread_id,nb_docs,top_chi_square_words,top_chi_square_hashtags,top_hashtags,id_80_percentile,tweet_80_percentile,user_80_percentile,media_urls,tweets_by_media,start_date,end_date,max_docs_date,MPs \
 > ${BASE_NAME}_${THRESHOLD}_${WINDOW_SIZE}_${SAFE_KEYWORDS}_events_stats.csv
 
 echo "7. Filter on 20 tweets by cluster"
