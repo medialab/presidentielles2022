@@ -25,9 +25,9 @@ def main(threads_file_path, tweets_file_path, output_file_path):
                         int(row[before]) + 1,
                     ]
                 elif row[before]:
-                    instructions[row[thread_id]]["delete_before"] = int(row[before])
+                    instructions[row[thread_id]]["delete_before"] = int(row[before]) - 1
                 elif row[after]:
-                    instructions[row[thread_id]]["delete_after"] = int(row[after])
+                    instructions[row[thread_id]]["delete_after"] = int(row[after]) - 1
 
                 # If the name of the thread has changed due to a merge or a tweet deletion
                 if "_" in row[merged_thread_id]:
