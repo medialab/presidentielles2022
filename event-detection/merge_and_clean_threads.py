@@ -31,9 +31,14 @@ def main(threads_file_path, tweets_file_path, output_file_path):
 
                 # If the name of the thread has changed due to a merge or a tweet deletion
                 if "_" in row[merged_thread_id]:
-                    instructions[row[thread_id]]["new_thread_id"] = row[merged_thread_id]
+                    instructions[row[thread_id]]["new_thread_id"] = row[
+                        merged_thread_id
+                    ]
 
-    with open(tweets_file_path) as tweets_file, open(output_file_path, "w") as output_file:
+    with (
+        open(tweets_file_path) as tweets_file,
+        open(output_file_path, "w") as output_file,
+    ):
         enricher = casanova.enricher(tweets_file, output_file, add=["merged_thread_id"])
         thread_id = enricher.headers.thread_id
         current_thread = None
@@ -52,11 +57,15 @@ def main(threads_file_path, tweets_file_path, output_file_path):
                     else:
                         new_thread_id = instructions[current_thread]["new_thread_id"]
                         if "delete_before" in instructions[current_thread]:
-                            delete_before = instructions[current_thread]["delete_before"]
+                            delete_before = instructions[current_thread][
+                                "delete_before"
+                            ]
                         elif "delete_after" in instructions[current_thread]:
                             delete_after = instructions[current_thread]["delete_after"]
                         elif "delete_between" in instructions[current_thread]:
-                            delete_between = range(*instructions[current_thread]["delete_between"])
+                            delete_between = range(
+                                *instructions[current_thread]["delete_between"]
+                            )
                 else:
                     new_thread_id = current_thread
 
@@ -78,7 +87,6 @@ def main(threads_file_path, tweets_file_path, output_file_path):
                 continue
 
             enricher.writerow(row, [new_thread_id])
-
 
 
 if __name__ == "__main__":
