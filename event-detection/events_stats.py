@@ -36,7 +36,13 @@ csv.field_size_limit(sys.maxsize)
 TOTAL_TWEETS = 6896842
 tz = pytz.timezone("Europe/Paris")
 
-categories_sorted = ['Mainstream Media', 'Opinion Journalism', 'Counter-Informational Space', 'Periphery', None]
+categories_sorted = [
+    "Mainstream Media",
+    "Opinion Journalism",
+    "Counter-Informational Space",
+    "Periphery",
+    None,
+]
 
 media_domains = LRUTrie()
 media_index = {}
@@ -44,26 +50,36 @@ inverted_media_index = {}
 
 media_twitter_accounts = set()
 
-with casanova.reader('https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv') as reader:
+with casanova.reader(
+    "https://raw.githubusercontent.com/medialab/corpora/master/polarisation/medias.csv"
+) as reader:
     for i, row in enumerate(reader):
         if row[reader.headers.wheel_category] in categories_sorted:
             name = row[reader.headers.name]
             media_index[name] = i
             inverted_media_index[i] = name
-            for prefix in row[reader.headers.prefixes].split('|'):
+            for prefix in row[reader.headers.prefixes].split("|"):
                 domain = get_domain_name(prefix)
                 if domain == "twitter.com":
                     twitter_account = prefix.split("/")[-1].lower()
                     media_twitter_accounts.add(twitter_account)
-                elif domain not in [None, 'facebook.com', 'youtube.com', 'dailymotion.com']:
+                elif domain not in [
+                    None,
+                    "facebook.com",
+                    "youtube.com",
+                    "dailymotion.com",
+                ]:
                     media_domains.set(prefix, name)
 
-with casanova.reader('https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv') as reader:
+with casanova.reader(
+    "https://raw.githubusercontent.com/regardscitoyens/twitter-parlementaires/master/data/deputes.csv"
+) as reader:
     mp_ids = dict()
     for i, row in enumerate(reader):
         mp_ids[int(row[reader.headers.twitter_id])] = row[reader.headers.nom]
 
 user_index = {}
+
 
 def word_ngrams(tokens, stop_words=None, vocab=None, ngram_range=(1, 1)):
     """Turn tokens into a sequence of n-grams after stop words filtering.
@@ -108,20 +124,21 @@ def word_ngrams(tokens, stop_words=None, vocab=None, ngram_range=(1, 1)):
                     tokens_append(space_join(original_tokens[i : i + n]))
     return tokens
 
+
 def get_top_k_chi_squares(event_count, event_frequency, frequency, n, k):
     scores = []
     words = []
 
     for w, w_count in event_frequency.items():
-        indep = event_count*frequency[w]/n
-        chi_square = (w_count-indep)**2/indep
+        indep = event_count * frequency[w] / n
+        chi_square = (w_count - indep) ** 2 / indep
 
         if len(scores) < k:
             scores.append(chi_square)
             words.append(w)
         else:
             min_chi_square = min(scores)
-            if chi_square > min_chi_square :
+            if chi_square > min_chi_square:
                 index = scores.index(min_chi_square)
                 scores[index] = chi_square
                 words[index] = w
@@ -130,11 +147,10 @@ def get_top_k_chi_squares(event_count, event_frequency, frequency, n, k):
 
 def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=10):
     with casanova.reader(vocab_file) as reader:
-
         vocab = set(t for t in reader.cells("token"))
 
     events_stats = defaultdict(
-            lambda: {
+        lambda: {
             "nb_words": 0,
             "nb_docs": 0,
             "nb_hashtags": 0,
@@ -145,23 +161,23 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
             "tweets_by_media": set(),
             "mps": set(),
             "hashtags": Counter(),
-            "id_most_retweeted":"",
+            "id_most_retweeted": "",
             # "tweet_text_most_retweeted": "",
             # "user_most_retweeted":"",
             # "retweet_count_most_retweeted":0,
-            "id_trigger":"",
-            "tweet_text_trigger":"",
-            "user_trigger":"",
-            "nb_RT":[],
+            "id_trigger": "",
+            "tweet_text_trigger": "",
+            "user_trigger": "",
+            "nb_RT": [],
             "id_80_percentile": 0,
             "id_90_percentile": 0,
             "tweet_text_80_percentile": "",
             "tweet_text_90_percentile": "",
             "user_80_percentile": "",
             "user_90_percentile": "",
-    })
-    with open(source_file, 'r') as f:
-
+        }
+    )
+    with open(source_file, "r") as f:
         reader = casanova.reader(f)
 
         text_pos = reader.headers.text
@@ -170,17 +186,17 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
         date_pos = reader.headers.timestamp_utc
         user_id_pos = reader.headers.user_id
         user_name_pos = reader.headers.user_screen_name
-        retweet_count=reader.headers.retweet_count
-        tweet_text=reader.headers.tweet_text
-        tweet_id=reader.headers.id
+        retweet_count = reader.headers.retweet_count
+        tweet_text = reader.headers.tweet_text
+        tweet_id = reader.headers.id
 
         term_frequency = Counter()
         hashtag_frequency = Counter()
 
         n = 0
         n_hashtags = 0
-        token_pattern = re.compile(r'[a-z]+')
-        hashtag_pattern = re.compile(r'#(\w+)')
+        token_pattern = re.compile(r"[a-z]+")
+        hashtag_pattern = re.compile(r"#(\w+)")
 
         for row in tqdm(reader, total=TOTAL_TWEETS):
             event_id = format_thread_id(row[event_pos])
@@ -195,7 +211,7 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 previous_day = current_day
             else:
                 stats = events_stats[event_id]
-                previous_day =  datetime.fromtimestamp(stats["end_date"], tz=tz).date()
+                previous_day = datetime.fromtimestamp(stats["end_date"], tz=tz).date()
 
             stats["end_date"] = current_date
 
@@ -224,7 +240,11 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 media = media_index[media]
                 stats["media"][media] = None
 
-            for token in word_ngrams(token_pattern.findall(row[text_pos].lower()), vocab=vocab, ngram_range=(1, 2)):
+            for token in word_ngrams(
+                token_pattern.findall(row[text_pos].lower()),
+                vocab=vocab,
+                ngram_range=(1, 2),
+            ):
                 stats["tf"][token] += 1
                 term_frequency[token] += 1
                 stats["nb_words"] += 1
@@ -246,45 +266,68 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
 
     total = len(events_stats)
     for stats in tqdm(events_stats.values(), total=total):
-            sorted_nb_RT = sorted(stats["nb_RT"])
-            stats["80_percentile"] = sorted_nb_RT[int(math.ceil((stats["nb_docs"] * 80) / 100)) - 1]
-            stats["90_percentile"] = sorted_nb_RT[int(math.ceil((stats["nb_docs"] * 90) / 100)) - 1]
-            stats.pop("nb_RT")
+        sorted_nb_RT = sorted(stats["nb_RT"])
+        stats["80_percentile"] = sorted_nb_RT[
+            int(math.ceil((stats["nb_docs"] * 80) / 100)) - 1
+        ]
+        stats["90_percentile"] = sorted_nb_RT[
+            int(math.ceil((stats["nb_docs"] * 90) / 100)) - 1
+        ]
+        stats.pop("nb_RT")
 
-    with open(source_file, 'r') as f:
+    with open(source_file, "r") as f:
         reader = casanova.reader(f)
 
         for row in tqdm(reader, total=TOTAL_TWEETS):
-
             user_name_pos = reader.headers.user_screen_name
-            retweet_count=reader.headers.retweet_count
-            tweet_text=reader.headers.tweet_text
+            retweet_count = reader.headers.retweet_count
+            tweet_text = reader.headers.tweet_text
             event_id = format_thread_id(row[event_pos])
 
             stats = events_stats[event_id]
 
             if stats["nb_docs"] >= min_nb_docs:
-
-                if stats["id_80_percentile"] == 0 and int(row[retweet_count]) >= stats["80_percentile"] :
+                if (
+                    stats["id_80_percentile"] == 0
+                    and int(row[retweet_count]) >= stats["80_percentile"]
+                ):
                     stats["tweet_text_80_percentile"] = row[tweet_text]
-                    stats["user_80_percentile"]= row[user_name_pos]
+                    stats["user_80_percentile"] = row[user_name_pos]
                     stats["id_80_percentile"] = int(row[tweet_id])
 
-                if stats["id_90_percentile"] == 0 and int(row[retweet_count]) >= stats["90_percentile"] :
+                if (
+                    stats["id_90_percentile"] == 0
+                    and int(row[retweet_count]) >= stats["90_percentile"]
+                ):
                     stats["tweet_text_90_percentile"] = row[tweet_text]
-                    stats["user_90_percentile"]= row[user_name_pos]
+                    stats["user_90_percentile"] = row[user_name_pos]
                     stats["id_90_percentile"] = int(row[tweet_id])
-
 
         with open(outfile, "w") as of:
             writer = csv.writer(of)
-            writer.writerow(["thread_id", "nb_docs", "nb_words", "top_chi_square_words", "top_chi_square_hashtags", \
-                            "top_hashtags", "media_urls", "tweets_by_media",\
-                            "start_date", "end_date", "max_docs_date", "MPs",\
-                            # "tweet_most_RTed","user_most_RTed", "id_most_RTed",\
-                            "tweet_80_percentile","user_80_percentile","id_80_percentile",
-                            "tweet_90_percentile","user_90_percentile","id_90_percentile",
-                            ])
+            writer.writerow(
+                [
+                    "thread_id",
+                    "nb_docs",
+                    "nb_words",
+                    "top_chi_square_words",
+                    "top_chi_square_hashtags",
+                    "top_hashtags",
+                    "media_urls",
+                    "tweets_by_media",
+                    "start_date",
+                    "end_date",
+                    "max_docs_date",
+                    "MPs",
+                    # "tweet_most_RTed","user_most_RTed", "id_most_RTed",\
+                    "tweet_80_percentile",
+                    "user_80_percentile",
+                    "id_80_percentile",
+                    "tweet_90_percentile",
+                    "user_90_percentile",
+                    "id_90_percentile",
+                ]
+            )
             total = len(events_stats)
             for event, stats in tqdm(events_stats.items(), total=total):
                 nb_docs = stats["nb_docs"]
@@ -292,8 +335,12 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                 if nb_docs >= min_nb_docs:
                     nb_words = stats["nb_words"]
                     nb_hashtags = stats["nb_hashtags"]
-                    top_5_chi = get_top_k_chi_squares(nb_words, stats["tf"], term_frequency, n, 5)
-                    top_5_chi_hashtags = get_top_k_chi_squares(nb_hashtags, stats["hashtags"], hashtag_frequency, n_hashtags, 5)
+                    top_5_chi = get_top_k_chi_squares(
+                        nb_words, stats["tf"], term_frequency, n, 5
+                    )
+                    top_5_chi_hashtags = get_top_k_chi_squares(
+                        nb_hashtags, stats["hashtags"], hashtag_frequency, n_hashtags, 5
+                    )
                     top_5_hashtags = [h[0] for h in stats["hashtags"].most_common(5)]
                     writer.writerow(
                         [
@@ -317,11 +364,12 @@ def event_stats(source_file, vocab_file, outfile, format_thread_id, min_nb_docs=
                             stats["id_80_percentile"],
                             stats["tweet_text_90_percentile"],
                             stats["user_90_percentile"],
-                            stats["id_90_percentile"]
+                            stats["id_90_percentile"],
                         ]
                     )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     in_file = sys.argv[1]
     assert os.path.exists(in_file)
 
@@ -329,7 +377,7 @@ if __name__ == '__main__':
     assert os.path.exists(vocab_file)
 
     formated_file = sys.argv[3]
-    assert formated_file.endswith('.csv')
+    assert formated_file.endswith(".csv")
 
     format_thread_id = int if len(sys.argv) == 5 else str
 
