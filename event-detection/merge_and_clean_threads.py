@@ -5,14 +5,23 @@ from collections import defaultdict
 
 def main(threads_file_path, tweets_file_path, output_file_path):
     instructions = defaultdict(dict)
+    kept_threads = set()
 
     with casanova.reader(threads_file_path) as reader:
+        keep = reader.headers["retenu dans le corpus"]
         thread_id = reader.headers.thread_id
         merged_thread_id = reader.headers.thread_id_merge
         before = reader.headers.suppr_avant_inclus
         after = reader.headers.suppr_apres_inclus
 
         for row in reader:
+            if (
+                "oui" in row[keep].lower()
+                or "fusionner" in row[keep].lower()
+                or "supprimer" in row[keep].lower()
+            ):
+                kept_threads.add(row[thread_id])
+
             # If thread is composed of 2 distinct subevents, the names of the newly created threads must be different
             if "end" in row[merged_thread_id]:
                 instructions[row[thread_id]]["switch_idx"] = int(row[before])
@@ -35,15 +44,16 @@ def main(threads_file_path, tweets_file_path, output_file_path):
                         merged_thread_id
                     ]
 
-    with (
-        open(tweets_file_path) as tweets_file,
-        open(output_file_path, "w") as output_file,
-    ):
+    print(f"{len(kept_threads)} threads will be kept and merged")
+
+    with open(tweets_file_path) as tweets_file, open(output_file_path, "w") as output_file:
         enricher = casanova.enricher(tweets_file, output_file, add=["merged_thread_id"])
         thread_id = enricher.headers.thread_id
         current_thread = None
 
         for row in enricher:
+            if row[thread_id] not in kept_threads:
+                continue
             if row[thread_id] != current_thread:
                 counter = 0
                 delete_between = []
