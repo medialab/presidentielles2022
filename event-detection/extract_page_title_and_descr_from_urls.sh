@@ -1,5 +1,7 @@
 
 #!/bin/sh
+# xsv version 0.13.0-medialab32
+
 set -euo pipefail
 
 INPUT_FILE=$1
@@ -84,7 +86,7 @@ gzip -d ${BASE_NAME}_originals_with_RT.csv.gz
 xsv explode links \| ${BASE_NAME}_originals_with_RT.csv > ${BASE_NAME}_originals_with_RT_exploded.csv
 
 xsv join --left links ${BASE_NAME}_originals_with_RT_exploded.csv links ${BASE_NAME}_links_with_extraction.csv | \
-xsv select 1-55,normalized_url,extracted_resolved_url,extracted_title,extracted_description,extracted_date | \
+xsv select 0-54,normalized_url,extracted_resolved_url,extracted_title,extracted_description,extracted_date | \
 gzip -c > ${BASE_NAME}_originals_with_RT_exploded_extraction.csv.gz
 rm ${BASE_NAME}_originals_with_RT.csv
 rm ${BASE_NAME}_originals_with_RT_exploded.csv
