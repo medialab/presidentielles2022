@@ -12,21 +12,30 @@ parser.add_argument("in_file_path")
 parser.add_argument("out_file_path")
 parser.add_argument("--ylabel", default="Nombre de tweets")
 parser.add_argument("--title", default="Sans les non partisans")
-parser.add_argument("--non-partisans", action="store_true")
+parser.add_argument("--fence-sitters", action="store_true")
 
 
 def plot_groups_per_day(
-    file_path, out_file_path, ylabel, title, show_non_partisans=True
+    file_path, out_file_path, ylabel, title, show_fence_sitters=False
 ):
     groups = [
         "non partisan",
+        "partagé",
         "gauche radicale",
         "gauche",
         "gouvernement et centre",
         "droite",
         "extrême droite",
     ]
-    colors = ["whitesmoke", "lightgrey", "silver", "darkgray", "dimgrey", "black"]
+    colors = [
+        "whitesmoke",
+        "lightgrey",
+        "silver",
+        "darkgray",
+        "grey",
+        "dimgrey",
+        "black",
+    ]
     days = set(
         [
             "2023-06-27",
@@ -52,9 +61,9 @@ def plot_groups_per_day(
         "27 juin",
     ]
 
-    if not show_non_partisans:
-        groups = groups[1:]
-        colors = colors[1:]
+    if not show_fence_sitters:
+        groups.pop("partagé")
+        colors.pop("lightgrey")
 
     if file_path == "-":
         file_path = sys.stdin
@@ -66,8 +75,8 @@ def plot_groups_per_day(
         if row[h.date] in days:
             group = row[h.user_candidate_group]
             if not group:
-                if show_non_partisans:
-                    group = "non partisan"
+                if show_fence_sitters:
+                    group = "partagé"
                 else:
                     continue
             group_dict[group].append(int(row[h.count]))
@@ -88,7 +97,7 @@ def plot_groups_per_day(
             width,
             label=group,
             color=color,
-            hatch="/" * 2 * (enum + int(not show_non_partisans)),
+            hatch="/" * 2 * enum,
         )
         multiplier += 1
 
@@ -108,5 +117,5 @@ plot_groups_per_day(
     args.out_file_path,
     args.ylabel,
     args.title,
-    args.non - partisans,
+    args.fence_sitters,
 )
