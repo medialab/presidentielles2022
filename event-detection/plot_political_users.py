@@ -36,8 +36,7 @@ def plot_groups_per_day(
         "dimgrey",
         "black",
     ]
-    days = set(
-        [
+    days = [
             "2023-06-27",
             "2023-06-28",
             "2023-06-29",
@@ -47,8 +46,7 @@ def plot_groups_per_day(
             "2023-07-03",
             "2023-07-04",
             "2023-07-05",
-        ]
-    )
+    ]
     str_dates = [
         "5 juillet",
         "4 juillet",
@@ -62,14 +60,14 @@ def plot_groups_per_day(
     ]
 
     if not show_fence_sitters:
-        groups.pop("partagé")
-        colors.pop("lightgrey")
+        groups.pop(groups.index("partagé"))
+        colors.pop(colors.index("lightgrey"))
 
     if file_path == "-":
         file_path = sys.stdin
     reader = casanova.reader(file_path)
     h = reader.headers
-    group_dict = defaultdict(list)
+    group_dict = defaultdict(lambda: {day : 0 for day in days})
 
     for row in reader:
         if row[h.date] in days:
@@ -79,7 +77,7 @@ def plot_groups_per_day(
                     group = "partagé"
                 else:
                     continue
-            group_dict[group].append(int(row[h.count]))
+            group_dict[group][row[h.date]] += int(row[h.count])
 
     x = np.arange(len(days))  # the label locations
     width = 1 / (len(groups) + 1)  # the width of the bars
@@ -89,7 +87,7 @@ def plot_groups_per_day(
     plt.grid(visible=True, axis="x")
 
     for enum, (color, group) in enumerate(zip(colors, groups)):
-        y = list(reversed(group_dict[group]))
+        y = list(group_dict[group][day] for day in reversed(days))
         offset = width * multiplier
         rects = ax.barh(
             x + offset,
