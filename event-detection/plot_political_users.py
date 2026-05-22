@@ -106,6 +106,9 @@ def plot_groups_per_day(
     ax.legend(loc="upper right")
     fig.set_size_inches(8, 10)
 
+    handles, labels = plt.gca().get_legend_handles_labels()
+    plt.legend(reversed(handles), reversed(labels))
+
     plt.savefig(out_file_path)
 
 
