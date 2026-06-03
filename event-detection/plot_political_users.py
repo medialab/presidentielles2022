@@ -28,7 +28,7 @@ def plot_groups_per_day(
         "extrême droite",
     ]
     colors = [
-        "whitesmoke",
+        "gainsboro",
         "lightgrey",
         "silver",
         "darkgray",
@@ -37,26 +37,26 @@ def plot_groups_per_day(
         "black",
     ]
     days = [
-            "2023-06-27",
-            "2023-06-28",
-            "2023-06-29",
-            "2023-06-30",
-            "2023-07-01",
-            "2023-07-02",
-            "2023-07-03",
-            "2023-07-04",
-            "2023-07-05",
+        "2023-06-27",
+        "2023-06-28",
+        "2023-06-29",
+        "2023-06-30",
+        "2023-07-01",
+        "2023-07-02",
+        "2023-07-03",
+        "2023-07-04",
+        "2023-07-05",
     ]
     str_dates = [
-        "5 juillet",
-        "4 juillet",
-        "3 juillet",
-        "2 juillet",
-        "1er juillet",
-        "30 juin",
-        "29 juin",
-        "28 juin",
         "27 juin",
+        "28 juin",
+        "29 juin",
+        "30 juin",
+        "1er juillet",
+        "2 juillet",
+        "3 juillet",
+        "4 juillet",
+        "5 juillet",
     ]
 
     if not show_fence_sitters:
@@ -67,7 +67,7 @@ def plot_groups_per_day(
         file_path = sys.stdin
     reader = casanova.reader(file_path)
     h = reader.headers
-    group_dict = defaultdict(lambda: {day : 0 for day in days})
+    group_dict = defaultdict(lambda: {day: 0 for day in days})
 
     for row in reader:
         if row[h.date] in days:
@@ -84,12 +84,12 @@ def plot_groups_per_day(
     multiplier = 0
 
     fig, ax = plt.subplots(layout="constrained")
-    plt.grid(visible=True, axis="x")
+    plt.grid(visible=True, axis="y")
 
     for enum, (color, group) in enumerate(zip(colors, groups)):
-        y = list(group_dict[group][day] for day in reversed(days))
+        y = list(group_dict[group][day] for day in days)
         offset = width * multiplier
-        rects = ax.barh(
+        rects = ax.bar(
             x + offset,
             y,
             width,
@@ -101,13 +101,13 @@ def plot_groups_per_day(
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_title(title)
-    ax.set_xlabel(ylabel)
-    ax.set_yticks(x + 0.36, str_dates)
+    ax.set_ylabel(ylabel)
+    ax.set_xticks(x + 0.36, str_dates)
     ax.legend(loc="upper right")
     fig.set_size_inches(8, 10)
 
     handles, labels = plt.gca().get_legend_handles_labels()
-    plt.legend(reversed(handles), reversed(labels))
+    plt.legend(handles, labels)
 
     plt.savefig(out_file_path)
 
