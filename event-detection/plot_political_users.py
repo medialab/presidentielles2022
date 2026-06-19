@@ -13,10 +13,11 @@ parser.add_argument("out_file_path")
 parser.add_argument("--ylabel", default="Nombre de tweets")
 parser.add_argument("--title", default="Sans les non partisans")
 parser.add_argument("--fence-sitters", action="store_true")
+parser.add_argument("--color", action="store_true")
 
 
 def plot_groups_per_day(
-    file_path, out_file_path, ylabel, title, show_fence_sitters=False
+    file_path, out_file_path, ylabel, title, show_fence_sitters=False, colors=False
 ):
     groups = [
         "non partisan",
@@ -26,14 +27,26 @@ def plot_groups_per_day(
         "droite",
         "extrême droite",
     ]
-    colors = [
-        "gainsboro",
-        "lightgrey",
-        "darkgray",
-        "grey",
-        "dimgrey",
-        "black",
-    ]
+
+    if colors:
+        colors = [
+            "#BDBDBD", # non partisan
+            "#9467BD", # partagé
+            "#E41A1C", # gauche
+            "#FFD700", # centre
+            "#377EB8", # droite
+            "#08306B", # extrême droite
+        ]
+    else:
+        colors = [
+            "gainsboro",
+            "lightgrey",
+            "darkgray",
+            "grey",
+            "dimgrey",
+            "black",
+        ]
+
     days = [
         "2023-06-27",
         "2023-06-28",
@@ -58,8 +71,9 @@ def plot_groups_per_day(
     ]
 
     if not show_fence_sitters:
-        groups.pop(groups.index("partagé"))
-        colors.pop(colors.index("lightgrey"))
+        index_fence_sitters = groups.index("partagé")
+        groups.pop(index_fence_sitters)
+        colors.pop(index_fence_sitters)
 
     if file_path == "-":
         file_path = sys.stdin
@@ -80,7 +94,7 @@ def plot_groups_per_day(
             group_dict[group][row[h.date]] += int(row[h.count])
 
     x = np.arange(len(days))  # the label locations
-    width = 1 / (len(groups) + 1)  # the width of the bars
+    width = 1 / (len(groups) + 3)  # the width of the bars
     multiplier = 0
 
     fig, ax = plt.subplots(layout="constrained")
@@ -104,7 +118,7 @@ def plot_groups_per_day(
     ax.set_ylabel(ylabel)
     ax.set_xticks(x + 0.36, str_dates)
     ax.legend(loc="upper right")
-    fig.set_size_inches(10, 8)
+    fig.set_size_inches(10, 7)
 
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend(handles, labels)
@@ -119,4 +133,5 @@ plot_groups_per_day(
     args.ylabel,
     args.title,
     args.fence_sitters,
+    args.color,
 )
