@@ -21,7 +21,6 @@ def plot_groups_per_day(
     groups = [
         "non partisan",
         "partagé",
-        "gauche radicale",
         "gauche",
         "gouvernement et centre",
         "droite",
@@ -30,7 +29,6 @@ def plot_groups_per_day(
     colors = [
         "gainsboro",
         "lightgrey",
-        "silver",
         "darkgray",
         "grey",
         "dimgrey",
@@ -77,6 +75,8 @@ def plot_groups_per_day(
                     group = "partagé"
                 else:
                     continue
+            elif group == "gauche radicale":
+                group = "gauche"
             group_dict[group][row[h.date]] += int(row[h.count])
 
     x = np.arange(len(days))  # the label locations
@@ -104,7 +104,7 @@ def plot_groups_per_day(
     ax.set_ylabel(ylabel)
     ax.set_xticks(x + 0.36, str_dates)
     ax.legend(loc="upper right")
-    fig.set_size_inches(8, 10)
+    fig.set_size_inches(10, 8)
 
     handles, labels = plt.gca().get_legend_handles_labels()
     plt.legend(handles, labels)
