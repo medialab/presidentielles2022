@@ -9,28 +9,39 @@ parser = argparse.ArgumentParser(
 )
 parser.add_argument("in_file_path")
 parser.add_argument("out_file_path")
+parser.add_argument("--color", action="store_true")
 args = parser.parse_args()
 
 groups = [
     "non partisan",
     "partagé",
-    "gauche radicale",
     "gauche",
     "gouvernement et centre",
     "droite",
     "extrême droite",
 ]
-colors = [
-    "white",
-    "gainsboro",
-    "lightgrey",
-    "silver",
-    "darkgray",
-    "grey",
-    "black",
-]
+if args.color:
+    colors = [
+        "#BDBDBD", # non partisan
+        "#9467BD", # partagé
+        "#E41A1C", # gauche
+        "#FFD700", # centre
+        "#377EB8", # droite
+        "#08306B", # extrême droite
+    ]
+else:
+    colors = [
+        "whitesmoke",
+        "lightgrey",
+        "darkgray",
+        "grey",
+        "dimgrey",
+        "black",
+    ]
 
 df = pd.read_csv(args.in_file_path).set_index("index")
+df["gauche"] = df["gauche"] + df["gauche radicale"]
+df.drop("gauche radicale", axis=1, inplace=True)
 df.index.names = ["assembleur"]
 df = df.rename(
     index={"Utilisateur militant et groupe d'intérêt": "Militant et groupe d'intérêt"}
